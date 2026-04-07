@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(export PATH=\"/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/*/bin:$PATH\")",
+      "Read(//usr/local/bin/**)",
+      "Read(//Users/tyler/.volta/bin/**)",
+      "Read(//Users/tyler/.fnm/**)",
+      "Bash(brew --prefix)",
+      "Read(//usr/local/**)",
+      "Read(//opt/**)",
+      "Read(//Users/tyler/**)",
+      "Bash(mdfind \"kMDItemFSName == ''''node''''\")",
+      "Bash(curl -fsSL https://fnm.vercel.app/install)",
+      "Bash(bash)",
+      "Bash(curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh)",
+      "Bash(touch ~/.zshrc)",
+      "Bash(echo 'export NVM_DIR=\"\"$HOME/.nvm\"\":*)",
+      "Bash(~/.zshrc)",
+      "Bash(npx create-vite@latest . --template react-ts)",
+      "Bash(curl -s -w \"\\\\n---HTTP_CODE:%{http_code}---\" \"https://api.golfcourseapi.com/v1/courses/search?lat=33.4942&lng=-111.9261&radius=20\" -H \"Authorization: Bearer T7OCNDJDDLYQKS2SIHJ32YAL5I\")",
+      "Bash(curl -s -w \"\\\\n---HTTP_CODE:%{http_code}---\" \"https://api.golfcourseapi.com/v1/courses/search?lat=33.4942&lng=-111.9261&radius=20\" -H \"x-api-key: T7OCNDJDDLYQKS2SIHJ32YAL5I\")",
+      "Bash(curl -s -w \"\\\\n---HTTP_CODE:%{http_code}---\" \"https://api.golfcourseapi.com/v1/courses/search?lat=33.4942&lng=-111.9261&radius=20\" -H \"Authorization: Key T7OCNDJDDLYQKS2SIHJ32YAL5I\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(ln -sf /Users/tyler/.nvm/versions/node/v24.14.1/bin/node /usr/local/bin/node)",
+      "Bash(chmod +x \"/Users/tyler/Coding/Golf App/start-dev.sh\")"
+    ]
+  }
+}
