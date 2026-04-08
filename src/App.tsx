@@ -28,13 +28,13 @@ function App() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950">
+    <div className="h-screen flex flex-col bg-gray-50">
       <Header />
       <SearchBar onSearch={search} loading={loading} />
 
       {error && (
-        <div className="px-4 py-3 bg-red-500/10 border-b border-red-500/20">
-          <p className="text-sm text-red-400">{error}</p>
+        <div className="px-4 py-3 bg-red-50 border-b border-red-200">
+          <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
@@ -50,12 +50,12 @@ function App() {
         </div>
 
         {/* Sidebar */}
-        <div className="lg:w-96 border-t lg:border-t-0 lg:border-l border-slate-800 overflow-y-auto bg-slate-950">
+        <div className="lg:w-96 border-t lg:border-t-0 lg:border-l border-gray-200 overflow-y-auto bg-gray-50">
           {courses.length === 0 && !loading && !error ? (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
                 <svg
-                  className="w-8 h-8 text-emerald-400"
+                  className="w-8 h-8 text-emerald-500"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -65,10 +65,10 @@ function App() {
                   <circle cx="12" cy="10" r="3" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-white mb-1">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
                 Find Your Course
               </h3>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-gray-500">
                 Enter a city, zip code, or address to discover nearby golf courses.
               </p>
             </div>
@@ -86,12 +86,12 @@ function App() {
 
       {/* Selected course floating bar */}
       {selectedCourse && !detailCourseId && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[999] bg-slate-900 border border-slate-700 rounded-xl px-5 py-3 shadow-2xl flex items-center gap-4 max-w-md">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[999] bg-white border border-gray-200 rounded-xl px-5 py-3 shadow-xl flex items-center gap-4 max-w-md">
           <div className="min-w-0">
-            <p className="font-semibold text-white text-sm truncate">
+            <p className="font-semibold text-gray-900 text-sm truncate">
               {selectedCourse.n}
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-gray-500">
               {selectedCourse.distance.toFixed(1)} mi away
               {selectedCourse.par && ` · Par ${selectedCourse.par}`}
             </p>
@@ -104,7 +104,7 @@ function App() {
           </button>
           <button
             onClick={() => setSelectedCourse(null)}
-            className="text-slate-500 hover:text-white transition"
+            className="text-gray-400 hover:text-gray-700 transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
               <path d="M6 18L18 6M6 6l12 12" />
