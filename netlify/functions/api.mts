@@ -1,7 +1,7 @@
 import type { Context } from "@netlify/functions";
 
 export default async (req: Request, context: Context) => {
-  const API_KEY = Netlify.env.get("GOLF_API_KEY");
+  const API_KEY = process.env.GOLF_API_KEY;
   if (!API_KEY) {
     return new Response(JSON.stringify({ error: "API key not configured" }), {
       status: 500,
