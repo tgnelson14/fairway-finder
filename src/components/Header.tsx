@@ -1,6 +1,6 @@
 export function Header() {
   return (
-    <header className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center gap-3">
+    <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm">
       <div className="w-9 h-9 bg-emerald-500 rounded-full flex items-center justify-center">
         <svg
           viewBox="0 0 24 24"
@@ -15,10 +15,10 @@ export function Header() {
         </svg>
       </div>
       <div>
-        <h1 className="text-xl font-bold tracking-tight">
-          Fairway<span className="text-emerald-400">Finder</span>
+        <h1 className="text-xl font-bold tracking-tight text-gray-900">
+          Fairway<span className="text-emerald-600">Finder</span>
         </h1>
-        <p className="text-xs text-slate-400 -mt-0.5">
+        <p className="text-xs text-gray-500 -mt-0.5">
           Discover golf courses near you
         </p>
       </div>

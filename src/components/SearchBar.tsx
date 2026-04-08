@@ -15,11 +15,11 @@ export function SearchBar({ onSearch, loading }: SearchBarProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-slate-900 border-b border-slate-800">
+    <form onSubmit={handleSubmit} className="p-4 bg-white border-b border-gray-200">
       <div className="flex gap-2">
         <div className="flex-1 relative">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -33,13 +33,13 @@ export function SearchBar({ onSearch, loading }: SearchBarProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="City, zip code, or address..."
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+            className="w-full bg-gray-50 border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
           />
         </div>
         <select
           value={radius}
           onChange={(e) => setRadius(Number(e.target.value))}
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+          className="bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-emerald-500 transition"
         >
           <option value={10}>10 mi</option>
           <option value={20}>20 mi</option>
@@ -50,7 +50,7 @@ export function SearchBar({ onSearch, loading }: SearchBarProps) {
         <button
           type="submit"
           disabled={loading || !query.trim()}
-          className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition flex items-center gap-2"
+          className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition flex items-center gap-2"
         >
           {loading ? (
             <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">

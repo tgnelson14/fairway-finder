@@ -10,11 +10,11 @@ body,
 
 /* Leaflet container styling */
 .leaflet-container {
-  background: #0f172a !important;
+  background: #f9fafb !important;
   font-family: inherit;
 }
 
 /* Selected marker glow */
 .selected-marker {
-  filter: hue-rotate(100deg) brightness(1.3);
+  filter: hue-rotate(100deg) brightness(1.2) saturate(1.5);
 }

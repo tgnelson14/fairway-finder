@@ -12,21 +12,21 @@ export function CourseCard({ course, isSelected, onClick }: CourseCardProps) {
       onClick={onClick}
       className={`w-full text-left p-4 rounded-xl border transition-all ${
         isSelected
-          ? "bg-emerald-500/10 border-emerald-500/50"
-          : "bg-slate-800/50 border-slate-700/50 hover:border-slate-600"
+          ? "bg-emerald-50 border-emerald-400 shadow-sm"
+          : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
       }`}
     >
       <div className="flex justify-between items-start gap-2">
         <div className="min-w-0">
-          <h3 className="font-semibold text-white truncate">{course.n}</h3>
+          <h3 className="font-semibold text-gray-900 truncate">{course.n}</h3>
           {course.cn !== course.n && (
-            <p className="text-xs text-slate-400 truncate">{course.cn}</p>
+            <p className="text-xs text-gray-500 truncate">{course.cn}</p>
           )}
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-gray-400 mt-1">
             {course.city}, {course.st}
           </p>
         </div>
-        <span className="text-xs text-emerald-400 font-medium whitespace-nowrap">
+        <span className="text-xs text-emerald-600 font-medium whitespace-nowrap">
           {course.distance.toFixed(1)} mi
         </span>
       </div>
@@ -54,8 +54,8 @@ export function CourseCard({ course, isSelected, onClick }: CourseCardProps) {
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="text-center">
-      <div className="text-xs font-bold text-white">{value}</div>
-      <div className="text-[10px] text-slate-500 uppercase tracking-wider">{label}</div>
+      <div className="text-xs font-bold text-gray-900">{value}</div>
+      <div className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</div>
     </div>
   );
 }
