@@ -1,5 +1,5 @@
 export interface CourseIndex {
-  id: number;
+  id: string;
   cn: string; // club_name
   n: string; // course_name
   lat: number;
@@ -17,8 +17,8 @@ export interface CourseIndex {
 
 export interface HoleData {
   par: number;
-  yardage: number;
-  handicap: number;
+  yardage: number | null;
+  handicap: number | null;
 }
 
 export interface TeeData {
@@ -40,7 +40,7 @@ export interface TeeData {
 }
 
 export interface CourseDetail {
-  id: number;
+  id: string;
   club_name: string;
   course_name: string;
   location: {

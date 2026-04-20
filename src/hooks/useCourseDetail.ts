@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { CourseDetail } from "../types";
 import { fetchCourseDetail } from "../services/api";
 
-export function useCourseDetail(id: number | null) {
+export function useCourseDetail(id: string | null) {
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

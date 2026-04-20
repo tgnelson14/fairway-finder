@@ -10,8 +10,12 @@ export function Scorecard({ tees, label }: ScorecardProps) {
   const back9 = tees.holes.slice(9, 18);
   const frontPar = front9.reduce((s, h) => s + h.par, 0);
   const backPar = back9.reduce((s, h) => s + h.par, 0);
-  const frontYards = front9.reduce((s, h) => s + h.yardage, 0);
-  const backYards = back9.reduce((s, h) => s + h.yardage, 0);
+  const frontYards = front9.every((h) => h.yardage !== null)
+    ? front9.reduce((s, h) => s + (h.yardage ?? 0), 0)
+    : null;
+  const backYards = back9.length > 0 && back9.every((h) => h.yardage !== null)
+    ? back9.reduce((s, h) => s + (h.yardage ?? 0), 0)
+    : null;
 
   return (
     <div className="overflow-x-auto">
@@ -20,8 +24,8 @@ export function Scorecard({ tees, label }: ScorecardProps) {
           {label}
         </span>
         <span className="text-xs text-gray-400">
-          {tees.tee_name} tees &middot; Rating {tees.course_rating} &middot; Slope{" "}
-          {tees.slope_rating}
+          {tees.tee_name} tees &middot; Rating {tees.course_rating || "—"} &middot; Slope{" "}
+          {tees.slope_rating || "—"}
         </span>
       </div>
       <table className="w-full text-xs min-w-[640px]">
@@ -66,31 +70,31 @@ export function Scorecard({ tees, label }: ScorecardProps) {
             <td className="py-1.5 px-2 font-medium text-gray-700">Yards</td>
             {front9.map((h, i) => (
               <td key={i} className="py-1.5 px-1.5 text-center text-gray-500">
-                {h.yardage}
+                {h.yardage ?? "—"}
               </td>
             ))}
-            <td className="py-1.5 px-2 text-center font-bold text-gray-700">{frontYards}</td>
+            <td className="py-1.5 px-2 text-center font-bold text-gray-700">{frontYards ?? "—"}</td>
             {back9.map((h, i) => (
               <td key={i + 9} className="py-1.5 px-1.5 text-center text-gray-500">
-                {h.yardage}
+                {h.yardage ?? "—"}
               </td>
             ))}
-            <td className="py-1.5 px-2 text-center font-bold text-gray-700">{backYards}</td>
+            <td className="py-1.5 px-2 text-center font-bold text-gray-700">{backYards ?? "—"}</td>
             <td className="py-1.5 px-2 text-center font-bold text-gray-700">
-              {tees.total_yards}
+              {tees.total_yards || "—"}
             </td>
           </tr>
           <tr className="bg-gray-50">
             <td className="py-1.5 px-2 font-medium text-gray-700">Hdcp</td>
             {front9.map((h, i) => (
               <td key={i} className="py-1.5 px-1.5 text-center text-gray-400">
-                {h.handicap}
+                {h.handicap ?? "—"}
               </td>
             ))}
             <td className="py-1.5 px-2"></td>
             {back9.map((h, i) => (
               <td key={i + 9} className="py-1.5 px-1.5 text-center text-gray-400">
-                {h.handicap}
+                {h.handicap ?? "—"}
               </td>
             ))}
             <td className="py-1.5 px-2"></td>

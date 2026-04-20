@@ -8,7 +8,7 @@ interface CourseCardProps {
   index?: number;
   hovered?: boolean;
   onSelect?: () => void;
-  onHover?: (value: number | null) => void;
+  onHover?: (value: string | null) => void;
   theme?: Theme;
 }
 

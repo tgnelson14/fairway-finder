@@ -13,9 +13,10 @@ interface HomeScreenProps {
 export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, themeName, setTheme }: HomeScreenProps) {
   const [query, setQuery] = useState('');
   const [locating, setLocating] = useState(false);
+  const [radius, setRadius] = useState(50);
 
   const handleSearch = () => {
-    if (query.trim()) onSearch(query.trim(), 30);
+    if (query.trim()) onSearch(query.trim(), radius);
   };
 
   const handleLocation = () => {
@@ -24,7 +25,7 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, themeNa
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        onSearchByCoords(pos.coords.latitude, pos.coords.longitude, 30);
+        onSearchByCoords(pos.coords.latitude, pos.coords.longitude, radius);
       },
       () => {
         setLocating(false);
@@ -90,6 +91,7 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, themeNa
           maxWidth: 340, lineHeight: 1.65, marginBottom: 40,
         }}>
           Discover golf courses near you with ratings, scorecards, and course details.
+          Choose a wider radius for zip code searches.
         </p>
 
         {/* Search area */}
@@ -116,6 +118,27 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, themeNa
                 }}
               />
             </div>
+            <select
+              value={radius}
+              onChange={e => setRadius(Number(e.target.value))}
+              aria-label="Search radius"
+              style={{
+                padding: '0 14px', borderRadius: 14,
+                border: `1px solid ${theme.border}`,
+                background: theme.surface,
+                color: theme.text,
+                fontSize: 13,
+                fontFamily: 'DM Sans, sans-serif',
+                outline: 'none',
+                flexShrink: 0,
+              }}
+            >
+              <option value={10}>10 mi</option>
+              <option value={20}>20 mi</option>
+              <option value={30}>30 mi</option>
+              <option value={50}>50 mi</option>
+              <option value={100}>100 mi</option>
+            </select>
             <button
               onClick={handleSearch}
               disabled={!query.trim() || loading}
@@ -158,7 +181,7 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, themeNa
           {['San Francisco, CA', 'Pebble Beach, CA', 'Augusta, GA', 'Scottsdale, AZ'].map(loc => (
             <button
               key={loc}
-              onClick={() => onSearch(loc, 30)}
+              onClick={() => onSearch(loc, radius)}
               style={{
                 padding: '7px 14px', borderRadius: 20,
                 background: theme.surfaceAlt, border: `1px solid ${theme.border}`,

@@ -24,7 +24,7 @@ function App() {
   const [searchRadius, setSearchRadius] = useState(30);
   const [selectedCourse, setSelectedCourse] = useState<(CourseIndex & { distance: number }) | null>(null);
   const [showDetail, setShowDetail] = useState(false);
-  const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [sort, setSort] = useState<SortOption>("distance");
   const [filters, setFilters] = useState<Filters>({ holes: "Any" });

@@ -5,7 +5,7 @@ import type { CourseIndex } from '../types';
 import type { Theme } from '../contexts/ThemeContext';
 
 interface CourseDetailProps {
-  courseId: number;
+  courseId: string;
   course: CourseIndex & { distance: number };
   onClose: () => void;
   theme: Theme;

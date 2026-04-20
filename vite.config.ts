@@ -16,6 +16,11 @@ export default defineConfig(({ mode }) => {
             Authorization: `Key ${env.GOLF_API_KEY}`,
           },
         },
+        '/ogapi': {
+          target: 'https://api.opengolfapi.org',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/ogapi/, '/v1'),
+        },
       },
     },
   }

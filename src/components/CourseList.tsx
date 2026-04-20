@@ -3,7 +3,7 @@ import { CourseCard } from "./CourseCard";
 
 interface CourseListProps {
   courses: (CourseIndex & { distance: number })[];
-  selectedId: number | null;
+  selectedId: string | null;
   onSelect: (course: CourseIndex & { distance: number }) => void;
 }
 

@@ -29,10 +29,10 @@ function createPinIcon(index: number, isActive: boolean, theme: Theme) {
 interface MapViewProps {
   courses: (CourseIndex & { distance: number })[];
   center: { lat: number; lng: number } | null;
-  selectedId: number | null;
-  hoveredId: number | null;
+  selectedId: string | null;
+  hoveredId: string | null;
   onSelect: (course: CourseIndex & { distance: number }) => void;
-  onHover: (id: number | null) => void;
+  onHover: (id: string | null) => void;
   theme: Theme;
 }
 
