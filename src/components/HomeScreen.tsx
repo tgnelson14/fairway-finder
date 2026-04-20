@@ -1,19 +1,17 @@
 import { useState } from 'react';
-import { THEMES, type Theme, type ThemeName } from '../contexts/ThemeContext';
+import type { Theme } from '../contexts/ThemeContext';
 
 interface HomeScreenProps {
   onSearch: (query: string, radius: number) => void;
   onSearchByCoords: (lat: number, lng: number, radius: number) => void;
   loading: boolean;
   theme: Theme;
-  themeName: ThemeName;
-  setTheme: (name: ThemeName) => void;
 }
 
-export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, themeName, setTheme }: HomeScreenProps) {
+export function HomeScreen({ onSearch, onSearchByCoords, loading, theme }: HomeScreenProps) {
   const [query, setQuery] = useState('');
   const [locating, setLocating] = useState(false);
-  const [radius, setRadius] = useState(50);
+  const [radius, setRadius] = useState(30);
 
   const handleSearch = () => {
     if (query.trim()) onSearch(query.trim(), radius);
@@ -35,28 +33,6 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, themeNa
 
   return (
     <div style={{ height: '100vh', background: theme.bg, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      {/* Theme switcher */}
-      <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 6, zIndex: 10 }}>
-        {(Object.keys(THEMES) as ThemeName[]).map(key => (
-          <button
-            key={key}
-            onClick={() => setTheme(key)}
-            title={THEMES[key].name}
-            style={{
-              padding: '5px 12px', borderRadius: 20,
-              border: `1.5px solid ${themeName === key ? theme.primary : theme.border}`,
-              background: themeName === key ? theme.primary : theme.surface,
-              color: themeName === key ? '#fff' : theme.textSub,
-              fontSize: 11, fontWeight: 600, cursor: 'pointer',
-              fontFamily: 'DM Sans, sans-serif',
-              transition: 'all 0.15s',
-            }}
-          >
-            {THEMES[key].name}
-          </button>
-        ))}
-      </div>
-
       {/* Centered content */}
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',

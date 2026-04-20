@@ -75,7 +75,7 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [themeName, setThemeName] = useState<ThemeName>('daylight');
+  const [themeName, setThemeName] = useState<ThemeName>('dusk');
   return (
     <ThemeContext.Provider value={{ theme: THEMES[themeName], themeName, setTheme: setThemeName }}>
       {children}

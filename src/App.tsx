@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useTheme, THEMES, type ThemeName } from "./contexts/ThemeContext";
+import { useTheme } from "./contexts/ThemeContext";
 import { useCourseSearch } from "./hooks/useCourseSearch";
 import { HomeScreen } from "./components/HomeScreen";
 import { CourseCard } from "./components/CourseCard";
@@ -16,7 +16,7 @@ interface Filters {
 }
 
 function App() {
-  const { theme, themeName, setTheme } = useTheme();
+  const { theme } = useTheme();
   const { courses, loading, error, searchedLocation, search, searchByCoords } = useCourseSearch();
 
   const [screen, setScreen] = useState<"home" | "results">("home");
@@ -96,8 +96,6 @@ function App() {
         onSearchByCoords={handleSearchByCoords}
         loading={loading}
         theme={theme}
-        themeName={themeName}
-        setTheme={setTheme}
       />
     );
   }
@@ -154,23 +152,6 @@ function App() {
           color: theme.primary, letterSpacing: "-0.02em", whiteSpace: "nowrap",
         }}>
           Fairway
-        </div>
-
-        {/* Theme dots */}
-        <div style={{ display: "flex", gap: 5, marginLeft: 4 }}>
-          {(Object.keys(THEMES) as ThemeName[]).map(key => (
-            <button
-              key={key}
-              onClick={() => setTheme(key)}
-              title={THEMES[key].name}
-              style={{
-                width: 18, height: 18, borderRadius: "50%",
-                background: THEMES[key].primary,
-                border: `2px solid ${themeName === key ? theme.accent : "transparent"}`,
-                cursor: "pointer", padding: 0, transition: "border-color 0.15s",
-              }}
-            />
-          ))}
         </div>
       </div>
 
