@@ -54,12 +54,33 @@ type OpenGolfCourseDetail = {
   city: string;
   state: string;
   country: string;
+  postal_code: string | null;
+  phone: string | null;
+  website: string | null;
+  course_type: string | null;
+  year_built: number | null;
+  architect: string | null;
+  difficulty_percentile: number | null;
+  facilities: Record<string, boolean | null> | null;
+  hours_of_operation?: {
+    days?: string[];
+  } | null;
+  course_tags?: string[] | null;
   latitude: number;
   longitude: number;
   scorecard?: Array<{
     hole_number: number;
     par: number | null;
     handicap_index: number | null;
+  }>;
+};
+
+type OpenGolfNearbyResponse = {
+  nearby: Array<{
+    id: string;
+    poi_type: string;
+    name: string;
+    distance_miles: number;
   }>;
 };
 
@@ -98,7 +119,8 @@ function buildHoleData(
 
 function normalizeCourseDetail(
   detail: OpenGolfCourseDetail,
-  teesResponse: OpenGolfTeesResponse
+  teesResponse: OpenGolfTeesResponse,
+  nearbyResponse: OpenGolfNearbyResponse
 ): CourseDetail {
   const groupedTees = teesResponse.tees.reduce<CourseDetail["tees"]>(
     (acc, tee) => {
@@ -141,15 +163,31 @@ function normalizeCourseDetail(
     id: detail.id,
     club_name: detail.club_name,
     course_name: detail.course_name,
+    phone: detail.phone,
+    website: detail.website,
+    course_type: detail.course_type,
+    year_built: detail.year_built,
+    architect: detail.architect,
+    difficulty_percentile: detail.difficulty_percentile,
+    facilities: detail.facilities ?? {},
+    hours: detail.hours_of_operation?.days ?? [],
+    tags: detail.course_tags ?? [],
     location: {
       address: detail.address ?? "",
       city: detail.city,
       state: detail.state,
       country: detail.country,
+      postalCode: detail.postal_code ?? "",
       latitude: detail.latitude,
       longitude: detail.longitude,
     },
     tees: groupedTees,
+    nearby: nearbyResponse.nearby.map((poi) => ({
+      id: poi.id,
+      type: poi.poi_type,
+      name: poi.name,
+      distanceMiles: poi.distance_miles,
+    })),
   };
 }
 
@@ -158,16 +196,18 @@ export async function fetchCourseDetail(
 ): Promise<CourseDetail | null> {
   if (courseDetailCache.has(id)) return courseDetailCache.get(id)!;
   try {
-    const [detailRes, teesRes] = await Promise.all([
+    const [detailRes, teesRes, nearbyRes] = await Promise.all([
       fetch(`/ogapi/courses/${id}`),
       fetch(`/ogapi/courses/${id}/tees`),
+      fetch(`/ogapi/courses/${id}/nearby`),
     ]);
 
-    if (!detailRes.ok || !teesRes.ok) return null;
+    if (!detailRes.ok || !teesRes.ok || !nearbyRes.ok) return null;
 
     const detail = (await detailRes.json()) as OpenGolfCourseDetail;
     const tees = (await teesRes.json()) as OpenGolfTeesResponse;
-    const course = normalizeCourseDetail(detail, tees);
+    const nearby = (await nearbyRes.json()) as OpenGolfNearbyResponse;
+    const course = normalizeCourseDetail(detail, tees, nearby);
     courseDetailCache.set(id, course);
     return course;
   } catch {

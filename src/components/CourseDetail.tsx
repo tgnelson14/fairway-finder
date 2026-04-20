@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useCourseDetail } from '../hooks/useCourseDetail';
 import { useCourseWeather } from '../hooks/useCourseWeather';
 import { Scorecard } from './Scorecard';
-import type { CourseIndex } from '../types';
+import type { CourseIndex, NearbyPoint } from '../types';
 import type { Theme } from '../contexts/ThemeContext';
 
 interface CourseDetailProps {
@@ -41,6 +41,61 @@ function formatTime(value: string | null) {
   return new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+function difficultyLabel(value: number | null) {
+  if (value === null) return 'Unrated challenge';
+  if (value >= 0.85) return 'Demanding test';
+  if (value >= 0.6) return 'Strong all-around challenge';
+  if (value >= 0.35) return 'Friendly everyday round';
+  return 'Playable casual track';
+}
+
+function websiteLabel(url: string | null) {
+  if (!url) return 'No website listed';
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+function titleCase(value: string) {
+  return value
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function realAmenities(detail: ReturnType<typeof useCourseDetail>['course']) {
+  if (!detail) return [];
+
+  const facilityTags = Object.entries(detail.facilities)
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => titleCase(key));
+
+  const metaTags = [
+    detail.course_type,
+    detail.year_built ? `Est. ${detail.year_built}` : null,
+    detail.architect ? `Architect: ${detail.architect}` : null,
+  ].filter(Boolean) as string[];
+
+  return [...facilityTags, ...metaTags].slice(0, 8);
+}
+
+function bestFor(detail: ReturnType<typeof useCourseDetail>['course'], course: CourseIndex & { distance: number }) {
+  return [
+    course.holes === 18 ? 'Full-round day' : 'Shorter time window',
+    (course.distance ?? 0) <= 15 ? 'Close-to-home pick' : 'Destination round',
+    detail?.course_type ? `${detail.course_type} access` : 'Course access info',
+    difficultyLabel(detail?.difficulty_percentile ?? null),
+  ];
+}
+
+function groupedNearby(nearby: NearbyPoint[]) {
+  const priority = ["course", "restaurant", "hotel"];
+  return priority.flatMap((type) =>
+    nearby.filter((place) => place.type === type).slice(0, type === "restaurant" ? 3 : 2)
+  );
+}
+
 export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFavorite, theme }: CourseDetailProps) {
   const [tab, setTab] = useState<Tab>('overview');
   const { course: detail, loading, error } = useCourseDetail(courseId);
@@ -51,6 +106,9 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
   );
 
   const firstTee = detail?.tees.male?.[0] || detail?.tees.female?.[0];
+  const amenities = realAmenities(detail);
+  const nearby = detail ? groupedNearby(detail.nearby) : [];
+  const fitTags = bestFor(detail, course);
 
   return (
     <div style={{
@@ -177,29 +235,78 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
       {/* Tab content */}
       <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
         {tab === 'overview' && (
-          <div>
-            {/* Address */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{
-                fontSize: 11, color: theme.textMuted,
-                textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6,
-              }}>
-                Location
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <SectionHeader title="Course Profile" theme={theme} />
+            <div style={{
+              position: 'relative',
+              minHeight: 200,
+              borderRadius: 18,
+              overflow: 'hidden',
+              background: `linear-gradient(145deg, ${theme.primary} 0%, ${theme.accent} 60%, ${theme.primaryLight} 100%)`,
+              border: `1px solid ${theme.border}`,
+              padding: 18,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+            }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {fitTags.map((item) => (
+                  <Pill key={item} label={item} theme={theme} accent lightOnDark />
+                ))}
               </div>
+              <div style={{ maxWidth: 380 }}>
+                <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 26, fontWeight: 700, color: '#fff', lineHeight: 1.12 }}>
+                  {detail?.club_name || course.cn}
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(255,255,255,0.82)', marginTop: 8 }}>
+                  {detail?.course_type || 'Course type unavailable'} • {difficultyLabel(detail?.difficulty_percentile ?? null)}
+                  {detail?.year_built ? ` • Built ${detail.year_built}` : ''}
+                </div>
+                <div style={{ fontSize: 12, lineHeight: 1.55, color: 'rgba(255,255,255,0.72)', marginTop: 10 }}>
+                  {detail?.architect
+                    ? `Designed by ${detail.architect}.`
+                    : 'Design credits are not available for this course yet.'}{" "}
+                  {detail?.website
+                    ? `Official site: ${websiteLabel(detail.website)}.`
+                    : 'No official website is currently listed.'}
+                </div>
+              </div>
+            </div>
+
+            {/* Address */}
+            <div>
+              <SectionHeader title="Location" theme={theme} />
               <p style={{ fontSize: 13, color: theme.textSub, lineHeight: 1.6 }}>
                 {detail?.location.address || course.addr || `${course.city}, ${course.st}`}
+                {detail?.location.postalCode ? `, ${detail.location.postalCode}` : ''}
               </p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <InfoPanel title="Best For" theme={theme}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {fitTags.map((item) => (
+                    <Pill key={item} label={item} theme={theme} accent />
+                  ))}
+                </div>
+              </InfoPanel>
+              <InfoPanel title="Amenities" theme={theme}>
+                {amenities.length ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {amenities.map((item) => (
+                      <Pill key={item} label={item} theme={theme} />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyNote text="No facilities are listed for this course yet." theme={theme} />
+                )}
+              </InfoPanel>
             </div>
 
             {/* Course stats boxes */}
             {firstTee && (
               <div>
-                <div style={{
-                  fontSize: 11, color: theme.textMuted,
-                  textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10,
-                }}>
-                  Course Stats
-                </div>
+                <SectionHeader title="Course Stats" theme={theme} />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <StatBox label="Course Rating" value={firstTee.course_rating.toFixed(1)} theme={theme} />
                   <StatBox label="Slope" value={firstTee.slope_rating} theme={theme} />
@@ -208,6 +315,107 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
                 </div>
               </div>
             )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <InfoPanel title="Nearby Guide" theme={theme}>
+                {nearby.length ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {nearby.map((spot) => (
+                      <div key={spot.id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        background: theme.bg,
+                      }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>{spot.name}</div>
+                          <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{titleCase(spot.type)}</div>
+                        </div>
+                        <div style={{ fontSize: 12, color: theme.primary, fontWeight: 600 }}>
+                          {spot.distanceMiles.toFixed(1)} mi
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyNote text="No nearby recommendations were returned for this course." theme={theme} />
+                )}
+              </InfoPanel>
+
+              <InfoPanel title="Contact & Booking" theme={theme}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ padding: 12, borderRadius: 10, background: theme.bg }}>
+                    <div style={{ fontSize: 11, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Official website</div>
+                    <div style={{ fontSize: 14, color: theme.text, fontWeight: 600, marginTop: 6 }}>
+                      {detail?.website ? (
+                        <a
+                          href={detail.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: theme.primary, textDecoration: 'none' }}
+                        >
+                          {websiteLabel(detail.website)}
+                        </a>
+                      ) : 'No site listed'}
+                    </div>
+                  </div>
+                  <div style={{ padding: 12, borderRadius: 10, background: theme.bg }}>
+                    <div style={{ fontSize: 11, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Call the shop</div>
+                    <div style={{ fontSize: 14, color: theme.text, fontWeight: 600, marginTop: 6 }}>
+                      {detail?.phone ?? 'Phone unavailable'}
+                    </div>
+                  </div>
+                </div>
+              </InfoPanel>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <InfoPanel title="Hours" theme={theme}>
+                {detail?.hours.length ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {detail.hours.slice(0, 4).map((day) => (
+                      <div key={day} style={{
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        background: theme.bg,
+                        fontSize: 12,
+                        color: theme.textSub,
+                      }}>
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyNote text="Hours are not currently listed." theme={theme} />
+                )}
+              </InfoPanel>
+
+              <InfoPanel title="Round Planner" theme={theme}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ padding: 12, borderRadius: 10, background: theme.bg }}>
+                    <div style={{ fontSize: 11, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Weather snapshot</div>
+                    <div style={{ fontSize: 14, color: theme.text, fontWeight: 600, marginTop: 6 }}>
+                      {weather ? `${weatherLabel(weather.current.weatherCode)} • ${Math.round(weather.current.temperature ?? 0)}°` : 'Weather snapshot unavailable'}
+                    </div>
+                    <div style={{ fontSize: 12, color: theme.textSub, marginTop: 4 }}>
+                      {weather
+                        ? golfWeatherNote(weather.current.weatherCode, weather.current.windSpeed, weather.current.precipitation)
+                        : 'Open the Weather tab for a full forecast when data is available.'}
+                    </div>
+                  </div>
+                  <div style={{ padding: 12, borderRadius: 10, background: theme.bg }}>
+                    <div style={{ fontSize: 11, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Course notes</div>
+                    <div style={{ fontSize: 12, color: theme.textSub, marginTop: 6, lineHeight: 1.6 }}>
+                      {detail?.tags.length
+                        ? detail.tags.join(', ')
+                        : 'Tag data is not available for this course yet.'}
+                    </div>
+                  </div>
+                </div>
+              </InfoPanel>
+            </div>
 
             {loading && (
               <div style={{ textAlign: 'center', padding: 24, color: theme.textMuted, fontSize: 13 }}>
@@ -356,6 +564,57 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
         </button>
       </div>
     </div>
+  );
+}
+
+function SectionHeader({ title, theme }: { title: string; theme: Theme }) {
+  return (
+    <div style={{
+      fontSize: 11,
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      marginBottom: 10,
+    }}>
+      {title}
+    </div>
+  );
+}
+
+function InfoPanel({ title, children, theme }: { title: string; children: ReactNode; theme: Theme }) {
+  return (
+    <div style={{
+      padding: 14,
+      borderRadius: 14,
+      border: `1px solid ${theme.border}`,
+      background: theme.surfaceAlt,
+    }}>
+      <SectionHeader title={title} theme={theme} />
+      {children}
+    </div>
+  );
+}
+
+function EmptyNote({ text, theme }: { text: string; theme: Theme }) {
+  return (
+    <div style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.6 }}>
+      {text}
+    </div>
+  );
+}
+
+function Pill({ label, theme, accent, lightOnDark }: { label: string; theme: Theme; accent?: boolean; lightOnDark?: boolean }) {
+  return (
+    <span style={{
+      fontSize: 11,
+      padding: '5px 9px',
+      borderRadius: 999,
+      background: lightOnDark ? 'rgba(255,255,255,0.16)' : accent ? theme.accentLight : theme.bg,
+      color: lightOnDark ? '#fff' : accent ? theme.primary : theme.textSub,
+      border: `1px solid ${lightOnDark ? 'rgba(255,255,255,0.22)' : accent ? `${theme.accent}55` : theme.border}`,
+    }}>
+      {label}
+    </span>
   );
 }
 

@@ -39,15 +39,32 @@ export interface TeeData {
   holes: HoleData[];
 }
 
+export interface NearbyPoint {
+  id: string;
+  type: string;
+  name: string;
+  distanceMiles: number;
+}
+
 export interface CourseDetail {
   id: string;
   club_name: string;
   course_name: string;
+  phone: string | null;
+  website: string | null;
+  course_type: string | null;
+  year_built: number | null;
+  architect: string | null;
+  difficulty_percentile: number | null;
+  facilities: Record<string, boolean | null>;
+  hours: string[];
+  tags: string[];
   location: {
     address: string;
     city: string;
     state: string;
     country: string;
+    postalCode: string;
     latitude: number;
     longitude: number;
   };
@@ -55,6 +72,7 @@ export interface CourseDetail {
     male?: TeeData[];
     female?: TeeData[];
   };
+  nearby: NearbyPoint[];
 }
 
 export interface GeocodingResult {
