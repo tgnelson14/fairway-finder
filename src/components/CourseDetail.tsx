@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCourseDetail } from '../hooks/useCourseDetail';
+import { useCourseWeather } from '../hooks/useCourseWeather';
 import { Scorecard } from './Scorecard';
 import type { CourseIndex } from '../types';
 import type { Theme } from '../contexts/ThemeContext';
@@ -8,14 +9,46 @@ interface CourseDetailProps {
   courseId: string;
   course: CourseIndex & { distance: number };
   onClose: () => void;
+  isFavorite: boolean;
+  onToggleFavorite: (courseId: string) => void;
   theme: Theme;
 }
 
-type Tab = 'overview' | 'scorecard';
+type Tab = 'overview' | 'scorecard' | 'weather';
 
-export function CourseDetail({ courseId, course, onClose, theme }: CourseDetailProps) {
+function weatherLabel(code: number | null) {
+  if (code === null) return 'Conditions unavailable';
+  if ([0].includes(code)) return 'Clear';
+  if ([1, 2, 3].includes(code)) return 'Partly cloudy';
+  if ([45, 48].includes(code)) return 'Fog';
+  if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return 'Rain';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Snow';
+  if ([95, 96, 99].includes(code)) return 'Storms';
+  return 'Mixed conditions';
+}
+
+function golfWeatherNote(code: number | null, windSpeed: number | null, precip: number | null) {
+  if ((precip ?? 0) > 0.05 || [61, 63, 65, 80, 81, 82, 95, 96, 99].includes(code ?? -1)) {
+    return 'Rain risk. Pack layers and a towel.';
+  }
+  if ((windSpeed ?? 0) >= 18) return 'Windy conditions. Expect tougher club selection.';
+  if ([0, 1].includes(code ?? -1)) return 'Great golf weather right now.';
+  return 'Playable conditions with a few variables.';
+}
+
+function formatTime(value: string | null) {
+  if (!value) return '—';
+  return new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFavorite, theme }: CourseDetailProps) {
   const [tab, setTab] = useState<Tab>('overview');
   const { course: detail, loading, error } = useCourseDetail(courseId);
+  const { weather, loading: weatherLoading, error: weatherError } = useCourseWeather(
+    courseId,
+    course.lat,
+    course.lng
+  );
 
   const firstTee = detail?.tees.male?.[0] || detail?.tees.female?.[0];
 
@@ -56,6 +89,23 @@ export function CourseDetail({ courseId, course, onClose, theme }: CourseDetailP
         >
           <svg width="16" height="16" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
+
+        <button
+          onClick={() => onToggleFavorite(course.id)}
+          style={{
+            position: 'absolute', top: 12, right: 12,
+            background: 'rgba(255,255,255,0.15)',
+            border: 'none', cursor: 'pointer',
+            width: 34, height: 34, borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(4px)',
+            color: isFavorite ? '#fff' : 'rgba(255,255,255,0.75)',
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill={isFavorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+            <path d="m12 17.27 6.18 3.73-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
           </svg>
         </button>
 
@@ -106,7 +156,7 @@ export function CourseDetail({ courseId, course, onClose, theme }: CourseDetailP
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, flexShrink: 0 }}>
-        {(['overview', 'scorecard'] as Tab[]).map(t => (
+        {(['overview', 'scorecard', 'weather'] as Tab[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -197,6 +247,84 @@ export function CourseDetail({ courseId, course, onClose, theme }: CourseDetailP
                     No scorecard data available.
                   </p>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'weather' && (
+          <div>
+            {weatherLoading && (
+              <div style={{ textAlign: 'center', padding: 24, color: theme.textMuted, fontSize: 13 }}>
+                Loading weather…
+              </div>
+            )}
+            {weatherError && (
+              <div style={{ textAlign: 'center', padding: 16, color: theme.danger, fontSize: 13 }}>
+                {weatherError}
+              </div>
+            )}
+            {weather && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{
+                  padding: 16,
+                  borderRadius: 14,
+                  background: theme.surfaceAlt,
+                  border: `1px solid ${theme.border}`,
+                }}>
+                  <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 24, fontWeight: 700, color: theme.primary }}>
+                    {weather.current.temperature !== null ? `${Math.round(weather.current.temperature)}°` : '—'}
+                  </div>
+                  <div style={{ fontSize: 13, color: theme.textSub, marginTop: 4 }}>
+                    {weatherLabel(weather.current.weatherCode)} • Feels like {weather.current.apparentTemperature !== null ? `${Math.round(weather.current.apparentTemperature)}°` : '—'}
+                  </div>
+                  <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 8 }}>
+                    {golfWeatherNote(weather.current.weatherCode, weather.current.windSpeed, weather.current.precipitation)}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <StatBox label="Wind" value={weather.current.windSpeed !== null ? `${Math.round(weather.current.windSpeed)} mph` : '—'} theme={theme} />
+                  <StatBox label="Gusts" value={weather.current.windGusts !== null ? `${Math.round(weather.current.windGusts)} mph` : '—'} theme={theme} />
+                  <StatBox label="Sunrise" value={formatTime(weather.daily.sunrise)} theme={theme} />
+                  <StatBox label="Sunset" value={formatTime(weather.daily.sunset)} theme={theme} />
+                </div>
+
+                <div>
+                  <div style={{
+                    fontSize: 11, color: theme.textMuted,
+                    textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10,
+                  }}>
+                    Next 8 Hours
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
+                    {weather.hourly.map((hour) => (
+                      <div
+                        key={hour.time}
+                        style={{
+                          padding: 10,
+                          borderRadius: 10,
+                          background: theme.surfaceAlt,
+                          border: `1px solid ${theme.border}`,
+                          textAlign: 'center',
+                        }}
+                      >
+                        <div style={{ fontSize: 11, color: theme.textMuted }}>
+                          {formatTime(hour.time)}
+                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: theme.text, marginTop: 6 }}>
+                          {hour.temperature !== null ? `${Math.round(hour.temperature)}°` : '—'}
+                        </div>
+                        <div style={{ fontSize: 11, color: theme.textSub, marginTop: 4 }}>
+                          {hour.precipitationProbability !== null ? `${Math.round(hour.precipitationProbability)}% rain` : '—'}
+                        </div>
+                        <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>
+                          {hour.windSpeed !== null ? `${Math.round(hour.windSpeed)} mph` : '—'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>

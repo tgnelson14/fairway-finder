@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme, THEMES, type ThemeName } from "./contexts/ThemeContext";
 import { useCourseSearch } from "./hooks/useCourseSearch";
 import { HomeScreen } from "./components/HomeScreen";
@@ -28,6 +28,24 @@ function App() {
   const [showFilters, setShowFilters] = useState(false);
   const [sort, setSort] = useState<SortOption>("distance");
   const [filters, setFilters] = useState<Filters>({ holes: "Any" });
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const detailPaneWidth = showDetail ? "min(58vw, 620px)" : "360px";
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("favorite-course-ids");
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) setFavoriteIds(parsed);
+    } catch {
+      window.localStorage.removeItem("favorite-course-ids");
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("favorite-course-ids", JSON.stringify(favoriteIds));
+  }, [favoriteIds]);
 
   const handleSearch = (query: string, radius: number) => {
     setSearchQuery(query);
@@ -52,9 +70,20 @@ function App() {
     setShowDetail(true);
   };
 
+  const handleToggleFavorite = (courseId: string) => {
+    setFavoriteIds((current) =>
+      current.includes(courseId)
+        ? current.filter((id) => id !== courseId)
+        : [...current, courseId]
+    );
+  };
+
   const filteredCourses = courses
     .filter(c => filters.holes === "Any" || c.holes === +filters.holes)
     .sort((a, b) => {
+      const aFav = favoriteIds.includes(a.id);
+      const bFav = favoriteIds.includes(b.id);
+      if (aFav !== bFav) return aFav ? -1 : 1;
       if (sort === "distance") return a.distance - b.distance;
       if (sort === "rating") return (b.rating ?? 0) - (a.rating ?? 0);
       return a.n.localeCompare(b.n);
@@ -161,16 +190,17 @@ function App() {
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* Sidebar */}
         <div style={{
-          width: 340, background: theme.surface,
+          width: detailPaneWidth, background: theme.surface,
           borderRight: `1px solid ${theme.border}`,
           display: "flex", flexDirection: "column",
           flexShrink: 0, position: "relative",
+          transition: "width 0.22s ease",
         }}>
           {/* Sidebar header */}
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${theme.border}`, flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>
-                {loading ? "Searching…" : `${filteredCourses.length} courses found`}
+                {loading ? "Searching…" : `${filteredCourses.length} courses found${favoriteIds.length ? ` • ${favoriteIds.length} saved` : ""}`}
               </span>
               <button
                 onClick={() => setShowFilters(true)}
@@ -231,8 +261,10 @@ function App() {
                 index={i}
                 selected={selectedCourse?.id === course.id}
                 hovered={hoveredId === course.id}
+                isFavorite={favoriteIds.includes(course.id)}
                 onSelect={() => handleSelectCourse(course)}
                 onHover={setHoveredId}
+                onToggleFavorite={handleToggleFavorite}
                 theme={theme}
               />
             ))}
@@ -266,6 +298,8 @@ function App() {
               courseId={selectedCourse.id}
               course={selectedCourse}
               onClose={() => { setShowDetail(false); setSelectedCourse(null); }}
+              isFavorite={favoriteIds.includes(selectedCourse.id)}
+              onToggleFavorite={handleToggleFavorite}
               theme={theme}
             />
           )}

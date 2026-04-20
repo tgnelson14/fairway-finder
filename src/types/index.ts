@@ -62,3 +62,27 @@ export interface GeocodingResult {
   lng: number;
   displayName: string;
 }
+
+export interface CourseWeather {
+  current: {
+    time: string;
+    temperature: number | null;
+    apparentTemperature: number | null;
+    windSpeed: number | null;
+    windGusts: number | null;
+    precipitation: number | null;
+    weatherCode: number | null;
+    isDay: boolean;
+  };
+  hourly: Array<{
+    time: string;
+    temperature: number | null;
+    precipitationProbability: number | null;
+    weatherCode: number | null;
+    windSpeed: number | null;
+  }>;
+  daily: {
+    sunrise: string | null;
+    sunset: string | null;
+  };
+}

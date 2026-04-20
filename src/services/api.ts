@@ -1,4 +1,9 @@
-import type { CourseIndex, CourseDetail, GeocodingResult } from "../types";
+import type {
+  CourseIndex,
+  CourseDetail,
+  CourseWeather,
+  GeocodingResult,
+} from "../types";
 
 let coursesCache: CourseIndex[] | null = null;
 
@@ -185,6 +190,106 @@ export async function geocodeLocation(
       lng: parseFloat(results[0].lon),
       displayName: results[0].display_name,
     };
+  } catch {
+    return null;
+  }
+}
+
+type OpenMeteoResponse = {
+  current?: {
+    time: string;
+    temperature_2m?: number;
+    apparent_temperature?: number;
+    wind_speed_10m?: number;
+    wind_gusts_10m?: number;
+    precipitation?: number;
+    weather_code?: number;
+    is_day?: number;
+  };
+  hourly?: {
+    time: string[];
+    temperature_2m?: Array<number | null>;
+    precipitation_probability?: Array<number | null>;
+    weather_code?: Array<number | null>;
+    wind_speed_10m?: Array<number | null>;
+  };
+  daily?: {
+    sunrise?: string[];
+    sunset?: string[];
+  };
+};
+
+const courseWeatherCache = new Map<string, CourseWeather>();
+
+export async function fetchCourseWeather(
+  courseId: string,
+  lat: number,
+  lng: number
+): Promise<CourseWeather | null> {
+  if (courseWeatherCache.has(courseId)) return courseWeatherCache.get(courseId)!;
+
+  try {
+    const params = new URLSearchParams({
+      latitude: String(lat),
+      longitude: String(lng),
+      current: [
+        "temperature_2m",
+        "apparent_temperature",
+        "wind_speed_10m",
+        "wind_gusts_10m",
+        "precipitation",
+        "weather_code",
+        "is_day",
+      ].join(","),
+      hourly: [
+        "temperature_2m",
+        "precipitation_probability",
+        "weather_code",
+        "wind_speed_10m",
+      ].join(","),
+      daily: ["sunrise", "sunset"].join(","),
+      temperature_unit: "fahrenheit",
+      wind_speed_unit: "mph",
+      precipitation_unit: "inch",
+      forecast_days: "1",
+      timezone: "auto",
+    });
+
+    const res = await fetch(`/weather?${params.toString()}`);
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as OpenMeteoResponse;
+    if (!data.current || !data.hourly?.time?.length) return null;
+
+    const hourly = data.hourly.time.slice(0, 8).map((time, index) => ({
+      time,
+      temperature: data.hourly?.temperature_2m?.[index] ?? null,
+      precipitationProbability:
+        data.hourly?.precipitation_probability?.[index] ?? null,
+      weatherCode: data.hourly?.weather_code?.[index] ?? null,
+      windSpeed: data.hourly?.wind_speed_10m?.[index] ?? null,
+    }));
+
+    const weather: CourseWeather = {
+      current: {
+        time: data.current.time,
+        temperature: data.current.temperature_2m ?? null,
+        apparentTemperature: data.current.apparent_temperature ?? null,
+        windSpeed: data.current.wind_speed_10m ?? null,
+        windGusts: data.current.wind_gusts_10m ?? null,
+        precipitation: data.current.precipitation ?? null,
+        weatherCode: data.current.weather_code ?? null,
+        isDay: data.current.is_day === 1,
+      },
+      hourly,
+      daily: {
+        sunrise: data.daily?.sunrise?.[0] ?? null,
+        sunset: data.daily?.sunset?.[0] ?? null,
+      },
+    };
+
+    courseWeatherCache.set(courseId, weather);
+    return weather;
   } catch {
     return null;
   }

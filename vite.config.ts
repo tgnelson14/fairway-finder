@@ -21,6 +21,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/ogapi/, '/v1'),
         },
+        '/weather': {
+          target: 'https://api.open-meteo.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/weather/, '/v1/forecast'),
+        },
       },
     },
   }

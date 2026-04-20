@@ -4,15 +4,28 @@ import { useTheme, type Theme } from '../contexts/ThemeContext';
 interface CourseCardProps {
   course: CourseIndex & { distance: number };
   selected?: boolean;
+  isFavorite?: boolean;
   onClick?: () => void;
   index?: number;
   hovered?: boolean;
   onSelect?: () => void;
   onHover?: (value: string | null) => void;
+  onToggleFavorite?: (courseId: string) => void;
   theme?: Theme;
 }
 
-export function CourseCard({ course, index, selected, hovered, onClick, onSelect, onHover, theme }: CourseCardProps) {
+export function CourseCard({
+  course,
+  index,
+  selected,
+  hovered,
+  isFavorite,
+  onClick,
+  onSelect,
+  onHover,
+  onToggleFavorite,
+  theme,
+}: CourseCardProps) {
   const { theme: contextTheme } = useTheme();
   const resolvedTheme = theme ?? contextTheme;
   const active = selected || hovered;
@@ -45,7 +58,34 @@ export function CourseCard({ course, index, selected, hovered, onClick, onSelect
         {(index ?? 0) + 1}
       </div>
 
-      <div style={{ paddingLeft: 38 }}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite?.(course.id);
+        }}
+        aria-label={isFavorite ? 'Remove favorite' : 'Add favorite'}
+        style={{
+          position: 'absolute',
+          top: 14,
+          right: 14,
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          border: `1px solid ${resolvedTheme.border}`,
+          background: resolvedTheme.surface,
+          color: isFavorite ? resolvedTheme.accent : resolvedTheme.textMuted,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={isFavorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+          <path d="m12 17.27 6.18 3.73-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+        </svg>
+      </button>
+
+      <div style={{ paddingLeft: 38, paddingRight: 36 }}>
         {/* Name + distance */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
           <div style={{ minWidth: 0 }}>
