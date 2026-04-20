@@ -19,7 +19,7 @@ export function CourseList({ courses, selectedId, onSelect }: CourseListProps) {
         <CourseCard
           key={course.id}
           course={course}
-          isSelected={course.id === selectedId}
+          selected={course.id === selectedId}
           onClick={() => onSelect(course)}
         />
       ))}
