@@ -1,61 +1,104 @@
-import type { CourseIndex } from "../types";
+import type { CourseIndex } from '../types';
+import type { Theme } from '../contexts/ThemeContext';
 
 interface CourseCardProps {
   course: CourseIndex & { distance: number };
-  isSelected: boolean;
-  onClick: () => void;
+  index: number;
+  selected: boolean;
+  hovered: boolean;
+  onSelect: () => void;
+  onHover: (id: number | null) => void;
+  theme: Theme;
 }
 
-export function CourseCard({ course, isSelected, onClick }: CourseCardProps) {
+export function CourseCard({ course, index, selected, hovered, onSelect, onHover, theme }: CourseCardProps) {
+  const active = selected || hovered;
+
   return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left p-4 rounded-xl border transition-all ${
-        isSelected
-          ? "bg-emerald-50 border-emerald-400 shadow-sm"
-          : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
-      }`}
+    <div
+      onClick={onSelect}
+      onMouseEnter={() => onHover(course.id)}
+      onMouseLeave={() => onHover(null)}
+      style={{
+        padding: '16px',
+        borderBottom: `1px solid ${theme.border}`,
+        background: active ? theme.surfaceAlt : theme.surface,
+        cursor: 'pointer',
+        transition: 'background 0.15s',
+        position: 'relative',
+      }}
     >
-      <div className="flex justify-between items-start gap-2">
-        <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate">{course.n}</h3>
-          {course.cn !== course.n && (
-            <p className="text-xs text-gray-500 truncate">{course.cn}</p>
-          )}
-          <p className="text-xs text-gray-400 mt-1">
-            {course.city}, {course.st}
-          </p>
+      {/* Index badge */}
+      <div style={{
+        position: 'absolute', top: 16, left: 16,
+        width: 26, height: 26, borderRadius: '50%',
+        background: active ? theme.primary : theme.border,
+        color: active ? '#fff' : theme.textSub,
+        fontSize: 11, fontWeight: 600,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.15s', flexShrink: 0,
+      }}>
+        {index + 1}
+      </div>
+
+      <div style={{ paddingLeft: 38 }}>
+        {/* Name + distance */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              fontFamily: 'Playfair Display, serif',
+              fontSize: 15, fontWeight: 600,
+              color: theme.text, lineHeight: 1.3,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {course.n}
+            </div>
+            {course.cn !== course.n && (
+              <div style={{ fontSize: 11, color: theme.textSub, marginTop: 1 }}>{course.cn}</div>
+            )}
+            <div style={{ fontSize: 12, color: theme.textSub, marginTop: 2 }}>
+              {course.city}, {course.st}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: theme.primary }}>
+              {course.distance.toFixed(1)} mi
+            </div>
+            {course.holes && (
+              <div style={{ fontSize: 11, color: theme.textMuted }}>{course.holes} holes</div>
+            )}
+          </div>
         </div>
-        <span className="text-xs text-emerald-600 font-medium whitespace-nowrap">
-          {course.distance.toFixed(1)} mi
-        </span>
+
+        {/* Stats chips */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+          {course.par && (
+            <Chip label={`Par ${course.par}`} theme={theme} primary />
+          )}
+          {course.rating && (
+            <Chip label={`⭐ ${course.rating.toFixed(1)}`} theme={theme} />
+          )}
+          {course.slope && (
+            <Chip label={`Slope ${course.slope}`} theme={theme} />
+          )}
+          {course.yards && (
+            <Chip label={`${course.yards.toLocaleString()} yds`} theme={theme} />
+          )}
+        </div>
       </div>
-      <div className="flex gap-3 mt-3">
-        {course.par && (
-          <Stat label="Par" value={course.par} />
-        )}
-        {course.yards && (
-          <Stat label="Yards" value={course.yards.toLocaleString()} />
-        )}
-        {course.holes && (
-          <Stat label="Holes" value={course.holes} />
-        )}
-        {course.rating && (
-          <Stat label="Rating" value={course.rating.toFixed(1)} />
-        )}
-        {course.slope && (
-          <Stat label="Slope" value={course.slope} />
-        )}
-      </div>
-    </button>
+    </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function Chip({ label, theme, primary }: { label: string; theme: Theme; primary?: boolean }) {
   return (
-    <div className="text-center">
-      <div className="text-xs font-bold text-gray-900">{value}</div>
-      <div className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</div>
-    </div>
+    <span style={{
+      fontSize: 11, padding: '3px 8px', borderRadius: 20,
+      background: primary ? theme.accentLight : theme.surfaceAlt,
+      color: primary ? theme.primary : theme.textSub,
+      fontWeight: primary ? 500 : 400,
+    }}>
+      {label}
+    </span>
   );
 }

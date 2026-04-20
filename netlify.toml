@@ -3,6 +3,9 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[build.environment]
+  GOLF_API_KEY = "T7OCNDJDDLYQKS2SIHJ32YAL5I"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

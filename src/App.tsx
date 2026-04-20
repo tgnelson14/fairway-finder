@@ -1,126 +1,327 @@
 import { useState } from "react";
-import { Header } from "./components/Header";
-import { SearchBar } from "./components/SearchBar";
-import { MapView } from "./components/MapView";
-import { CourseList } from "./components/CourseList";
-import { CourseDetail } from "./components/CourseDetail";
+import { useTheme, THEMES, type ThemeName } from "./contexts/ThemeContext";
 import { useCourseSearch } from "./hooks/useCourseSearch";
+import { HomeScreen } from "./components/HomeScreen";
+import { CourseCard } from "./components/CourseCard";
+import { CourseDetail } from "./components/CourseDetail";
+import { FiltersPanel } from "./components/FiltersPanel";
+import { MapView } from "./components/MapView";
 import type { CourseIndex } from "./types";
 import "./index.css";
 
+type SortOption = "distance" | "rating" | "name";
+
+interface Filters {
+  holes: string;
+}
+
 function App() {
-  const { courses, loading, error, searchedLocation, search } = useCourseSearch();
-  const [selectedCourse, setSelectedCourse] = useState<
-    (CourseIndex & { distance: number }) | null
-  >(null);
-  const [detailCourseId, setDetailCourseId] = useState<number | null>(null);
-  const [detailCourseName, setDetailCourseName] = useState("");
+  const { theme, themeName, setTheme } = useTheme();
+  const { courses, loading, error, searchedLocation, search, searchByCoords } = useCourseSearch();
 
-  const handleSelect = (course: CourseIndex & { distance: number }) => {
+  const [screen, setScreen] = useState<"home" | "results">("home");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchRadius, setSearchRadius] = useState(30);
+  const [selectedCourse, setSelectedCourse] = useState<(CourseIndex & { distance: number }) | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [sort, setSort] = useState<SortOption>("distance");
+  const [filters, setFilters] = useState<Filters>({ holes: "Any" });
+
+  const handleSearch = (query: string, radius: number) => {
+    setSearchQuery(query);
+    setSearchRadius(radius);
+    search(query, radius);
+    setScreen("results");
+    setSelectedCourse(null);
+    setShowDetail(false);
+  };
+
+  const handleSearchByCoords = (lat: number, lng: number, radius: number) => {
+    setSearchQuery("");
+    setSearchRadius(radius);
+    searchByCoords(lat, lng, radius);
+    setScreen("results");
+    setSelectedCourse(null);
+    setShowDetail(false);
+  };
+
+  const handleSelectCourse = (course: CourseIndex & { distance: number }) => {
     setSelectedCourse(course);
+    setShowDetail(true);
   };
 
-  const handleViewDetail = () => {
-    if (selectedCourse) {
-      setDetailCourseId(selectedCourse.id);
-      setDetailCourseName(selectedCourse.n);
-    }
-  };
+  const filteredCourses = courses
+    .filter(c => filters.holes === "Any" || c.holes === +filters.holes)
+    .sort((a, b) => {
+      if (sort === "distance") return a.distance - b.distance;
+      if (sort === "rating") return (b.rating ?? 0) - (a.rating ?? 0);
+      return a.n.localeCompare(b.n);
+    });
+
+  if (screen === "home") {
+    return (
+      <HomeScreen
+        onSearch={handleSearch}
+        onSearchByCoords={handleSearchByCoords}
+        loading={loading}
+        theme={theme}
+        themeName={themeName}
+        setTheme={setTheme}
+      />
+    );
+  }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <Header />
-      <SearchBar onSearch={search} loading={loading} />
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: theme.bg, overflow: "hidden" }}>
+      {/* Navbar */}
+      <div style={{
+        height: 56, background: theme.surface,
+        borderBottom: `1px solid ${theme.border}`,
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "0 16px", flexShrink: 0, zIndex: 5,
+      }}>
+        <button
+          onClick={() => setScreen("home")}
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: 8, display: "flex" }}
+        >
+          <svg width="18" height="18" fill="none" stroke={theme.textSub} strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
 
-      {error && (
-        <div className="px-4 py-3 bg-red-50 border-b border-red-200">
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
-      )}
-
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Map */}
-        <div className="flex-1 min-h-[300px] lg:min-h-0">
-          <MapView
-            courses={courses}
-            center={searchedLocation}
-            selectedId={selectedCourse?.id ?? null}
-            onSelect={handleSelect}
+        <div style={{
+          flex: 1, display: "flex", alignItems: "center", gap: 8,
+          padding: "8px 12px", background: theme.surfaceAlt,
+          borderRadius: 10, border: `1px solid ${theme.border}`,
+        }}>
+          <svg width="14" height="14" fill="none" stroke={theme.textMuted} strokeWidth="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input
+            defaultValue={searchQuery}
+            placeholder="Search location…"
+            onKeyDown={e => {
+              if (e.key === "Enter") {
+                const v = (e.target as HTMLInputElement).value.trim();
+                if (v) handleSearch(v, searchRadius);
+              }
+            }}
+            style={{
+              flex: 1, border: "none", outline: "none",
+              background: "transparent", fontSize: 13,
+              color: theme.text, fontFamily: "DM Sans, sans-serif",
+            }}
           />
+          <svg width="14" height="14" fill="none" stroke={theme.accent} strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+            <circle cx="12" cy="9" r="2.5"/>
+          </svg>
         </div>
 
-        {/* Sidebar */}
-        <div className="lg:w-96 border-t lg:border-t-0 lg:border-l border-gray-200 overflow-y-auto bg-gray-50">
-          {courses.length === 0 && !loading && !error ? (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
-                <svg
-                  className="w-8 h-8 text-emerald-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  strokeWidth="1.5"
-                >
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Find Your Course
-              </h3>
-              <p className="text-sm text-gray-500">
-                Enter a city, zip code, or address to discover nearby golf courses.
-              </p>
-            </div>
-          ) : (
-            <>
-              <CourseList
-                courses={courses}
-                selectedId={selectedCourse?.id ?? null}
-                onSelect={handleSelect}
-              />
-            </>
-          )}
+        <div style={{
+          fontFamily: "Playfair Display, serif", fontSize: 20, fontWeight: 700,
+          color: theme.primary, letterSpacing: "-0.02em", whiteSpace: "nowrap",
+        }}>
+          Fairway
+        </div>
+
+        {/* Theme dots */}
+        <div style={{ display: "flex", gap: 5, marginLeft: 4 }}>
+          {(Object.keys(THEMES) as ThemeName[]).map(key => (
+            <button
+              key={key}
+              onClick={() => setTheme(key)}
+              title={THEMES[key].name}
+              style={{
+                width: 18, height: 18, borderRadius: "50%",
+                background: THEMES[key].primary,
+                border: `2px solid ${themeName === key ? theme.accent : "transparent"}`,
+                cursor: "pointer", padding: 0, transition: "border-color 0.15s",
+              }}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Selected course floating bar */}
-      {selectedCourse && !detailCourseId && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[999] bg-white border border-gray-200 rounded-xl px-5 py-3 shadow-xl flex items-center gap-4 max-w-md">
-          <div className="min-w-0">
-            <p className="font-semibold text-gray-900 text-sm truncate">
-              {selectedCourse.n}
-            </p>
-            <p className="text-xs text-gray-500">
-              {selectedCourse.distance.toFixed(1)} mi away
-              {selectedCourse.par && ` · Par ${selectedCourse.par}`}
-            </p>
-          </div>
-          <button
-            onClick={handleViewDetail}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition whitespace-nowrap"
-          >
-            View Details
-          </button>
-          <button
-            onClick={() => setSelectedCourse(null)}
-            className="text-gray-400 hover:text-gray-700 transition"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+      {/* Error bar */}
+      {error && (
+        <div style={{
+          padding: "10px 16px",
+          background: theme.danger + "18",
+          borderBottom: `1px solid ${theme.danger}40`,
+          fontSize: 13, color: theme.danger,
+        }}>
+          {error}
         </div>
       )}
 
-      {/* Course detail modal */}
-      {detailCourseId && (
-        <CourseDetail
-          courseId={detailCourseId}
-          courseName={detailCourseName}
-          onClose={() => setDetailCourseId(null)}
-        />
-      )}
+      {/* Main layout */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        {/* Sidebar */}
+        <div style={{
+          width: 340, background: theme.surface,
+          borderRight: `1px solid ${theme.border}`,
+          display: "flex", flexDirection: "column",
+          flexShrink: 0, position: "relative",
+        }}>
+          {/* Sidebar header */}
+          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${theme.border}`, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>
+                {loading ? "Searching…" : `${filteredCourses.length} courses found`}
+              </span>
+              <button
+                onClick={() => setShowFilters(true)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "5px 10px", borderRadius: 8,
+                  border: `1px solid ${theme.border}`, background: "none",
+                  cursor: "pointer", fontSize: 12, color: theme.textSub,
+                  fontFamily: "DM Sans, sans-serif",
+                }}
+              >
+                <svg width="13" height="13" fill="none" stroke={theme.textSub} strokeWidth="2" viewBox="0 0 24 24">
+                  <line x1="4" y1="6" x2="20" y2="6"/>
+                  <line x1="8" y1="12" x2="16" y2="12"/>
+                  <line x1="11" y1="18" x2="13" y2="18"/>
+                </svg>
+                Filters
+              </button>
+            </div>
+
+            {/* Sort buttons */}
+            <div style={{ display: "flex", gap: 6 }}>
+              {([["distance", "Nearest"], ["rating", "Top Rated"], ["name", "A–Z"]] as [SortOption, string][]).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setSort(val)}
+                  style={{
+                    flex: 1, padding: "6px 0", borderRadius: 8,
+                    border: `1px solid ${sort === val ? theme.primary : theme.border}`,
+                    background: sort === val ? theme.primary : "none",
+                    color: sort === val ? "#fff" : theme.textSub,
+                    fontSize: 11, fontWeight: 500, cursor: "pointer",
+                    fontFamily: "DM Sans, sans-serif", transition: "all 0.15s",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Course list */}
+          <div style={{ flex: 1, overflow: "auto" }}>
+            {loading && (
+              <div style={{ padding: 32, textAlign: "center", color: theme.textMuted, fontSize: 13 }}>
+                <svg style={{ animation: "spin 1s linear infinite", display: "inline-block", marginBottom: 8 }}
+                  width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <circle opacity="0.25" cx="12" cy="12" r="10" stroke={theme.primary} strokeWidth="4"/>
+                  <path opacity="0.75" fill={theme.primary} d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <br/>Loading courses…
+              </div>
+            )}
+            {!loading && filteredCourses.map((course, i) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                index={i}
+                selected={selectedCourse?.id === course.id}
+                hovered={hoveredId === course.id}
+                onSelect={() => handleSelectCourse(course)}
+                onHover={setHoveredId}
+                theme={theme}
+              />
+            ))}
+            {!loading && filteredCourses.length === 0 && courses.length > 0 && (
+              <div style={{ padding: 32, textAlign: "center", color: theme.textMuted, fontSize: 13 }}>
+                No courses match your filters
+              </div>
+            )}
+          </div>
+
+          {/* Overlays */}
+          {showFilters && (
+            <FiltersPanel
+              onClose={() => setShowFilters(false)}
+              filters={filters}
+              setFilters={setFilters}
+              radius={searchRadius}
+              onApply={(newRadius) => {
+                setShowFilters(false);
+                if (newRadius !== searchRadius && searchQuery) {
+                  handleSearch(searchQuery, newRadius);
+                } else {
+                  setSearchRadius(newRadius);
+                }
+              }}
+              theme={theme}
+            />
+          )}
+          {showDetail && selectedCourse && (
+            <CourseDetail
+              courseId={selectedCourse.id}
+              course={selectedCourse}
+              onClose={() => { setShowDetail(false); setSelectedCourse(null); }}
+              theme={theme}
+            />
+          )}
+        </div>
+
+        {/* Map */}
+        <div style={{ flex: 1, position: "relative" }}>
+          <MapView
+            courses={filteredCourses}
+            center={searchedLocation}
+            selectedId={selectedCourse?.id ?? null}
+            hoveredId={hoveredId}
+            onSelect={handleSelectCourse}
+            onHover={setHoveredId}
+            theme={theme}
+          />
+
+          {/* Map attribution */}
+          <div style={{
+            position: "absolute", bottom: 8, right: 8,
+            fontSize: 10, color: theme.textMuted,
+            background: theme.surface + "cc",
+            padding: "3px 6px", borderRadius: 4,
+          }}>
+            Fairway Maps © 2026
+          </div>
+
+          {/* Hover tooltip */}
+          {hoveredId && !showDetail && (() => {
+            const c = courses.find(x => x.id === hoveredId);
+            return c ? (
+              <div style={{
+                position: "absolute", bottom: 24, left: "50%",
+                transform: "translateX(-50%)",
+                background: theme.surface, padding: "10px 16px",
+                borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                border: `1px solid ${theme.border}`, whiteSpace: "nowrap",
+                pointerEvents: "none",
+              }}>
+                <div style={{ fontFamily: "Playfair Display, serif", fontSize: 14, fontWeight: 600, color: theme.text }}>
+                  {c.n}
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                  {c.rating && (
+                    <span style={{ fontSize: 12, color: theme.accent, fontWeight: 600 }}>
+                      Rating {c.rating.toFixed(1)}
+                    </span>
+                  )}
+                  <span style={{ fontSize: 12, color: theme.textSub }}>{c.distance.toFixed(1)} mi</span>
+                  {c.holes && <span style={{ fontSize: 12, color: theme.textSub }}>{c.holes} holes</span>}
+                </div>
+              </div>
+            ) : null;
+          })()}
+        </div>
+      </div>
     </div>
   );
 }
