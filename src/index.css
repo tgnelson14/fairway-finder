@@ -1,20 +1,27 @@
 @import "tailwindcss";
 
-html,
-body,
-#root {
+html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
 }
 
-/* Leaflet container styling */
-.leaflet-container {
-  background: #f9fafb !important;
-  font-family: inherit;
+body {
+  font-family: 'DM Sans', sans-serif;
+  overflow: hidden;
 }
 
-/* Selected marker glow */
-.selected-marker {
-  filter: hue-rotate(100deg) brightness(1.2) saturate(1.5);
+.leaflet-container {
+  background: #e8e3d8 !important;
+  font-family: 'DM Sans', sans-serif;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

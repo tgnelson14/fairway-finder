@@ -48,5 +48,27 @@ export function useCourseSearch() {
     }
   }, []);
 
-  return { ...state, search };
+  const searchByCoords = useCallback(async (lat: number, lng: number, radius: number = 30) => {
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const results = await searchCourses(lat, lng, radius);
+      setState({
+        courses: results,
+        loading: false,
+        error:
+          results.length === 0
+            ? `No courses found within ${radius} miles. Try increasing the radius.`
+            : null,
+        searchedLocation: { lat, lng, name: 'Current Location' },
+      });
+    } catch {
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: "Something went wrong. Please try again.",
+      }));
+    }
+  }, []);
+
+  return { ...state, search, searchByCoords };
 }
