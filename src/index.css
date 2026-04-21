@@ -29,3 +29,87 @@ body {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ---- Responsive layout utilities ---- */
+
+/* 2-col grid that collapses to 1-col on mobile */
+.responsive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* 2-col stat grid — stays 2-col at all sizes */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* 4-col hourly weather grid — 2-col on mobile */
+.weather-hourly-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* Home search row: select + button wrapper */
+.home-search-controls {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Mobile tab bar (list ↔ map toggle) */
+.mobile-tab-bar {
+  display: none;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+/* ---- Mobile breakpoint (≤ 767px) ---- */
+@media (max-width: 767px) {
+  .mobile-tab-bar {
+    display: flex;
+  }
+
+  /* Sidebar fills full width on mobile */
+  .pane-sidebar {
+    width: 100% !important;
+    border-right: none !important;
+  }
+
+  /* Hide element on mobile */
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Responsive grid collapses to single column */
+  .responsive-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Hourly weather becomes 2-col */
+  .weather-hourly-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Search row wraps onto two lines */
+  .home-search-row {
+    flex-wrap: wrap;
+  }
+
+  /* Input takes the full first line */
+  .home-search-input-wrap {
+    width: 100% !important;
+    flex: none !important;
+  }
+
+  /* Controls (select + button) fill the second line */
+  .home-search-controls {
+    width: 100%;
+  }
+
+  .home-search-controls select,
+  .home-search-controls button {
+    flex: 1 1 0% !important;
+    min-width: 0;
+  }
+}

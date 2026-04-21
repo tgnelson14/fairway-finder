@@ -33,6 +33,7 @@ function App() {
   const [sort, setSort] = useState<SortOption>("distance");
   const [filters, setFilters] = useState<Filters>({ holes: "Any" });
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [mobileView, setMobileView] = useState<"list" | "map">("list");
   const detailPaneWidth = showDetail ? "min(58vw, 620px)" : "360px";
 
   const favKey = user ? `favorites-${user.id}` : "favorite-course-ids";
@@ -53,6 +54,7 @@ function App() {
     setScreen("results");
     setSelectedCourse(null);
     setShowDetail(false);
+    setMobileView("list");
   };
 
   const handleSearchByCoords = (lat: number, lng: number, radius: number) => {
@@ -62,11 +64,13 @@ function App() {
     setScreen("results");
     setSelectedCourse(null);
     setShowDetail(false);
+    setMobileView("list");
   };
 
   const handleSelectCourse = (course: CourseIndex & { distance: number }) => {
     setSelectedCourse(course);
     setShowDetail(true);
+    setMobileView("list");
   };
 
   const handleToggleFavorite = (courseId: string) => {
@@ -148,7 +152,7 @@ function App() {
           </svg>
         </div>
 
-        <div style={{
+        <div className="hide-mobile" style={{
           fontFamily: "Playfair Display, serif", fontSize: 20, fontWeight: 700,
           color: theme.primary, letterSpacing: "-0.02em", whiteSpace: "nowrap",
         }}>
@@ -204,13 +208,16 @@ function App() {
       {/* Main layout */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* Sidebar */}
-        <div style={{
-          width: detailPaneWidth, background: theme.surface,
-          borderRight: `1px solid ${theme.border}`,
-          display: "flex", flexDirection: "column",
-          flexShrink: 0, position: "relative",
-          transition: "width 0.22s ease",
-        }}>
+        <div
+          className={`pane-sidebar${mobileView === "map" ? " hide-mobile" : ""}`}
+          style={{
+            width: detailPaneWidth, background: theme.surface,
+            borderRight: `1px solid ${theme.border}`,
+            display: "flex", flexDirection: "column",
+            flexShrink: 0, position: "relative",
+            transition: "width 0.22s ease",
+          }}
+        >
           {/* Sidebar header */}
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${theme.border}`, flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -321,7 +328,10 @@ function App() {
         </div>
 
         {/* Map */}
-        <div style={{ flex: 1, position: "relative" }}>
+        <div
+          className={mobileView === "list" ? "hide-mobile" : ""}
+          style={{ flex: 1, position: "relative" }}
+        >
           <MapView
             courses={filteredCourses}
             center={searchedLocation}
@@ -370,6 +380,54 @@ function App() {
             ) : null;
           })()}
         </div>
+      </div>
+
+      {/* Mobile tab bar — list / map toggle */}
+      <div
+        className="mobile-tab-bar"
+        style={{
+          background: theme.surface,
+          borderTop: `1px solid ${theme.border}`,
+        }}
+      >
+        <button
+          onClick={() => setMobileView("list")}
+          style={{
+            flex: 1, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 3,
+            background: "none", border: "none", cursor: "pointer",
+            color: mobileView === "list" ? theme.primary : theme.textMuted,
+            fontFamily: "DM Sans, sans-serif", fontSize: 11, fontWeight: 500,
+            padding: 0,
+          }}
+        >
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <line x1="8" y1="6" x2="21" y2="6"/>
+            <line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/>
+            <line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/>
+            <line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          List
+        </button>
+        <button
+          onClick={() => setMobileView("map")}
+          style={{
+            flex: 1, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 3,
+            background: "none", border: "none", cursor: "pointer",
+            color: mobileView === "map" ? theme.primary : theme.textMuted,
+            fontFamily: "DM Sans, sans-serif", fontSize: 11, fontWeight: 500,
+            padding: 0,
+          }}
+        >
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          Map
+        </button>
       </div>
     </div>
   );

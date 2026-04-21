@@ -280,7 +280,7 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
               </p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="responsive-grid" style={{ gap: 12 }}>
               <InfoPanel title="Best For" theme={theme}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {fitTags.map((item) => (
@@ -305,7 +305,7 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
             {firstTee && (
               <div>
                 <SectionHeader title="Course Stats" theme={theme} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="stat-grid" style={{ gap: 10 }}>
                   <StatBox label="Course Rating" value={firstTee.course_rating.toFixed(1)} theme={theme} />
                   <StatBox label="Slope" value={firstTee.slope_rating} theme={theme} />
                   <StatBox label="Total Yards" value={firstTee.total_yards.toLocaleString()} theme={theme} />
@@ -314,7 +314,7 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="responsive-grid" style={{ gap: 12 }}>
               <InfoPanel title="Nearby Guide" theme={theme}>
                 {nearby.length ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -369,7 +369,7 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
               </InfoPanel>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="responsive-grid" style={{ gap: 12 }}>
               <InfoPanel title="Hours" theme={theme}>
                 {detail?.hours.length ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -489,7 +489,7 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="stat-grid" style={{ gap: 10 }}>
                   <StatBox label="Wind" value={weather.current.windSpeed !== null ? `${Math.round(weather.current.windSpeed)} mph` : '—'} theme={theme} />
                   <StatBox label="Gusts" value={weather.current.windGusts !== null ? `${Math.round(weather.current.windGusts)} mph` : '—'} theme={theme} />
                   <StatBox label="Sunrise" value={formatTime(weather.daily.sunrise)} theme={theme} />
@@ -503,7 +503,7 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
                   }}>
                     Next 8 Hours
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
+                  <div className="weather-hourly-grid" style={{ gap: 8 }}>
                     {weather.hourly.map((hour) => (
                       <div
                         key={hour.time}

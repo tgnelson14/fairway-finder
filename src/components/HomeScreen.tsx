@@ -72,13 +72,16 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme }: HomeS
 
         {/* Search area */}
         <div style={{ width: '100%', maxWidth: 440 }}>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-            <div style={{
-              flex: 1, display: 'flex', alignItems: 'center', gap: 10,
-              padding: '14px 16px', background: theme.surface,
-              borderRadius: 14, border: `1px solid ${theme.border}`,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-            }}>
+          <div className="home-search-row" style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+            <div
+              className="home-search-input-wrap"
+              style={{
+                flex: 1, display: 'flex', alignItems: 'center', gap: 10,
+                padding: '14px 16px', background: theme.surface,
+                borderRadius: 14, border: `1px solid ${theme.border}`,
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+              }}
+            >
               <svg width="18" height="18" fill="none" stroke={theme.textMuted} strokeWidth="2" viewBox="0 0 24 24">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
@@ -94,42 +97,44 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme }: HomeS
                 }}
               />
             </div>
-            <select
-              value={radius}
-              onChange={e => setRadius(Number(e.target.value))}
-              aria-label="Search radius"
-              style={{
-                padding: '0 14px', borderRadius: 14,
-                border: `1px solid ${theme.border}`,
-                background: theme.surface,
-                color: theme.text,
-                fontSize: 13,
-                fontFamily: 'DM Sans, sans-serif',
-                outline: 'none',
-                flexShrink: 0,
-              }}
-            >
-              <option value={10}>10 mi</option>
-              <option value={20}>20 mi</option>
-              <option value={30}>30 mi</option>
-              <option value={50}>50 mi</option>
-              <option value={100}>100 mi</option>
-            </select>
-            <button
-              onClick={handleSearch}
-              disabled={!query.trim() || loading}
-              style={{
-                padding: '0 22px', borderRadius: 14,
-                background: query.trim() && !loading ? theme.primary : theme.border,
-                border: 'none',
-                cursor: query.trim() && !loading ? 'pointer' : 'default',
-                color: '#fff', fontSize: 14, fontWeight: 600,
-                fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap',
-                flexShrink: 0, transition: 'background 0.15s',
-              }}
-            >
-              {loading ? 'Searching…' : 'Search'}
-            </button>
+            <div className="home-search-controls">
+              <select
+                value={radius}
+                onChange={e => setRadius(Number(e.target.value))}
+                aria-label="Search radius"
+                style={{
+                  padding: '0 14px', borderRadius: 14,
+                  border: `1px solid ${theme.border}`,
+                  background: theme.surface,
+                  color: theme.text,
+                  fontSize: 13,
+                  fontFamily: 'DM Sans, sans-serif',
+                  outline: 'none',
+                  flexShrink: 0,
+                }}
+              >
+                <option value={10}>10 mi</option>
+                <option value={20}>20 mi</option>
+                <option value={30}>30 mi</option>
+                <option value={50}>50 mi</option>
+                <option value={100}>100 mi</option>
+              </select>
+              <button
+                onClick={handleSearch}
+                disabled={!query.trim() || loading}
+                style={{
+                  padding: '0 22px', borderRadius: 14,
+                  background: query.trim() && !loading ? theme.primary : theme.border,
+                  border: 'none',
+                  cursor: query.trim() && !loading ? 'pointer' : 'default',
+                  color: '#fff', fontSize: 14, fontWeight: 600,
+                  fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap',
+                  flexShrink: 0, transition: 'background 0.15s',
+                }}
+              >
+                {loading ? 'Searching…' : 'Search'}
+              </button>
+            </div>
           </div>
 
           <button
