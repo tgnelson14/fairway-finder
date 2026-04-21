@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { useCourseDetail } from '../hooks/useCourseDetail';
 import { useCourseWeather } from '../hooks/useCourseWeather';
+import { useAuth } from '../contexts/AuthContext';
 import { Scorecard } from './Scorecard';
-import type { CourseIndex, NearbyPoint } from '../types';
+import type { CourseIndex, NearbyPoint, CheckIn } from '../types';
 import type { Theme } from '../contexts/ThemeContext';
 
 interface CourseDetailProps {
@@ -67,17 +68,10 @@ function titleCase(value: string) {
 function realAmenities(detail: ReturnType<typeof useCourseDetail>['course']) {
   if (!detail) return [];
 
-  const facilityTags = Object.entries(detail.facilities)
+  return Object.entries(detail.facilities)
     .filter(([, enabled]) => enabled)
-    .map(([key]) => titleCase(key));
-
-  const metaTags = [
-    detail.course_type,
-    detail.year_built ? `Est. ${detail.year_built}` : null,
-    detail.architect ? `Architect: ${detail.architect}` : null,
-  ].filter(Boolean) as string[];
-
-  return [...facilityTags, ...metaTags].slice(0, 8);
+    .map(([key]) => titleCase(key))
+    .slice(0, 8);
 }
 
 function bestFor(detail: ReturnType<typeof useCourseDetail>['course'], course: CourseIndex & { distance: number }) {
@@ -98,12 +92,40 @@ function groupedNearby(nearby: NearbyPoint[]) {
 
 export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFavorite, theme }: CourseDetailProps) {
   const [tab, setTab] = useState<Tab>('overview');
+  const [showLogForm, setShowLogForm] = useState(false);
+  const [logScore, setLogScore] = useState('');
+  const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
+  const [logNotes, setLogNotes] = useState('');
+  const [logSaved, setLogSaved] = useState(false);
+  const { user, login } = useAuth();
   const { course: detail, loading, error } = useCourseDetail(courseId);
   const { weather, loading: weatherLoading, error: weatherError } = useCourseWeather(
     courseId,
     course.lat,
     course.lng
   );
+
+  function handleSaveRound() {
+    if (!user) return;
+    const checkIn: CheckIn = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      courseId: course.id,
+      courseName: course.n,
+      courseCity: course.city,
+      courseSt: course.st,
+      date: logDate,
+      score: logScore ? parseInt(logScore, 10) : undefined,
+      notes: logNotes.trim() || undefined,
+    };
+    const key = `checkins-${user.id}`;
+    const existing: CheckIn[] = JSON.parse(localStorage.getItem(key) || '[]');
+    localStorage.setItem(key, JSON.stringify([checkIn, ...existing]));
+    setShowLogForm(false);
+    setLogScore('');
+    setLogNotes('');
+    setLogSaved(true);
+    setTimeout(() => setLogSaved(false), 3000);
+  }
 
   const firstTee = detail?.tees.male?.[0] || detail?.tees.female?.[0];
   const amenities = realAmenities(detail);
@@ -541,27 +563,124 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
 
       {/* CTA */}
       <div style={{ padding: '12px 16px', borderTop: `1px solid ${theme.border}`, flexShrink: 0 }}>
-        <button
-          onClick={() => {
-            const q = encodeURIComponent(`${course.n} ${course.city} ${course.st} golf course directions`);
-            window.open(`https://www.google.com/maps/search/${q}`, '_blank');
-          }}
-          style={{
-            width: '100%', padding: '14px',
-            background: theme.primary, color: '#fff',
-            border: 'none', borderRadius: 12, cursor: 'pointer',
-            fontSize: 14, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            transition: 'opacity 0.15s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-        >
-          Get Directions
-          <svg width="16" height="16" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-        </button>
+        {logSaved ? (
+          <div style={{
+            textAlign: 'center', padding: '14px',
+            color: theme.accent, fontSize: 14, fontWeight: 600,
+            fontFamily: 'DM Sans, sans-serif',
+          }}>
+            ✓ Round logged!
+          </div>
+        ) : showLogForm ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="date"
+                value={logDate}
+                onChange={e => setLogDate(e.target.value)}
+                style={{
+                  flex: 1, padding: '10px 12px', borderRadius: 10,
+                  border: `1px solid ${theme.border}`,
+                  background: theme.surfaceAlt, color: theme.text,
+                  fontSize: 13, fontFamily: 'DM Sans, sans-serif',
+                  outline: 'none',
+                }}
+              />
+              <input
+                type="number"
+                value={logScore}
+                onChange={e => setLogScore(e.target.value)}
+                placeholder="Score"
+                min="18" max="200"
+                style={{
+                  width: 80, padding: '10px 12px', borderRadius: 10,
+                  border: `1px solid ${theme.border}`,
+                  background: theme.surfaceAlt, color: theme.text,
+                  fontSize: 13, fontFamily: 'DM Sans, sans-serif',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <input
+              type="text"
+              value={logNotes}
+              onChange={e => setLogNotes(e.target.value)}
+              placeholder="Notes (optional)"
+              style={{
+                padding: '10px 12px', borderRadius: 10,
+                border: `1px solid ${theme.border}`,
+                background: theme.surfaceAlt, color: theme.text,
+                fontSize: 13, fontFamily: 'DM Sans, sans-serif',
+                outline: 'none',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => setShowLogForm(false)}
+                style={{
+                  flex: 1, padding: '12px', background: 'none',
+                  border: `1px solid ${theme.border}`, borderRadius: 10,
+                  cursor: 'pointer', fontSize: 13, color: theme.textSub,
+                  fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveRound}
+                style={{
+                  flex: 2, padding: '12px',
+                  background: theme.primary, color: '#fff',
+                  border: 'none', borderRadius: 10, cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
+                Save Round
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => {
+                const q = encodeURIComponent(`${course.n} ${course.city} ${course.st} golf course directions`);
+                window.open(`https://www.google.com/maps/search/${q}`, '_blank');
+              }}
+              style={{
+                flex: 1, padding: '14px',
+                background: theme.primary, color: '#fff',
+                border: 'none', borderRadius: 12, cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+            >
+              Directions
+              <svg width="14" height="14" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </button>
+            <button
+              onClick={() => user ? setShowLogForm(true) : login()}
+              style={{
+                flex: 1, padding: '14px',
+                background: 'none', color: theme.primary,
+                border: `2px solid ${theme.primary}`,
+                borderRadius: 12, cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              Log Round
+              <svg width="14" height="14" fill="none" stroke={theme.primary} strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"/>
+                <path d="M17.5 3.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 8.5-8.5z"/>
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

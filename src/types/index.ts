@@ -75,6 +75,17 @@ export interface CourseDetail {
   nearby: NearbyPoint[];
 }
 
+export interface CheckIn {
+  id: string;
+  courseId: string;
+  courseName: string;
+  courseCity: string;
+  courseSt: string;
+  date: string;
+  score?: number;
+  notes?: string;
+}
+
 export interface GeocodingResult {
   lat: number;
   lng: number;

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "./contexts/ThemeContext";
+import { useAuth } from "./contexts/AuthContext";
 import { useCourseSearch } from "./hooks/useCourseSearch";
 import { HomeScreen } from "./components/HomeScreen";
 import { CourseCard } from "./components/CourseCard";
 import { CourseDetail } from "./components/CourseDetail";
 import { FiltersPanel } from "./components/FiltersPanel";
 import { MapView } from "./components/MapView";
+import { UserPanel } from "./components/UserPanel";
 import type { CourseIndex } from "./types";
 import "./index.css";
 
@@ -17,6 +19,7 @@ interface Filters {
 
 function App() {
   const { theme } = useTheme();
+  const { user, login } = useAuth();
   const { courses, loading, error, searchedLocation, search, searchByCoords } = useCourseSearch();
 
   const [screen, setScreen] = useState<"home" | "results">("home");
@@ -26,26 +29,22 @@ function App() {
   const [showDetail, setShowDetail] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showUserPanel, setShowUserPanel] = useState(false);
   const [sort, setSort] = useState<SortOption>("distance");
   const [filters, setFilters] = useState<Filters>({ holes: "Any" });
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const detailPaneWidth = showDetail ? "min(58vw, 620px)" : "360px";
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem("favorite-course-ids");
-    if (!stored) return;
+  const favKey = user ? `favorites-${user.id}` : "favorite-course-ids";
 
+  useEffect(() => {
     try {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) setFavoriteIds(parsed);
+      const parsed = JSON.parse(window.localStorage.getItem(favKey) || "[]");
+      setFavoriteIds(Array.isArray(parsed) ? parsed : []);
     } catch {
-      window.localStorage.removeItem("favorite-course-ids");
+      setFavoriteIds([]);
     }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem("favorite-course-ids", JSON.stringify(favoriteIds));
-  }, [favoriteIds]);
+  }, [favKey]);
 
   const handleSearch = (query: string, radius: number) => {
     setSearchQuery(query);
@@ -71,11 +70,13 @@ function App() {
   };
 
   const handleToggleFavorite = (courseId: string) => {
-    setFavoriteIds((current) =>
-      current.includes(courseId)
+    setFavoriteIds((current) => {
+      const next = current.includes(courseId)
         ? current.filter((id) => id !== courseId)
-        : [...current, courseId]
-    );
+        : [...current, courseId];
+      window.localStorage.setItem(favKey, JSON.stringify(next));
+      return next;
+    });
   };
 
   const filteredCourses = courses
@@ -153,7 +154,40 @@ function App() {
         }}>
           Fairway
         </div>
+
+        <button
+          onClick={() => user ? setShowUserPanel(true) : login()}
+          style={{
+            background: user ? theme.primary : "none",
+            border: user ? "none" : `1px solid ${theme.border}`,
+            cursor: "pointer", borderRadius: "50%",
+            width: 34, height: 34, flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: user ? "#fff" : theme.textSub,
+            fontSize: 13, fontWeight: 600,
+            fontFamily: "DM Sans, sans-serif",
+          }}
+          title={user ? "My profile" : "Sign in"}
+        >
+          {user
+            ? (user.user_metadata?.full_name || user.email).charAt(0).toUpperCase()
+            : (
+              <svg width="16" height="16" fill="none" stroke={theme.textSub} strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            )
+          }
+        </button>
       </div>
+
+      {showUserPanel && (
+        <UserPanel
+          onClose={() => setShowUserPanel(false)}
+          theme={theme}
+          favoriteCount={favoriteIds.length}
+        />
+      )}
 
       {/* Error bar */}
       {error && (
