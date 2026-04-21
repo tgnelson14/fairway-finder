@@ -261,14 +261,13 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
                   {detail?.course_type || 'Course type unavailable'} • {difficultyLabel(detail?.difficulty_percentile ?? null)}
                   {detail?.year_built ? ` • Built ${detail.year_built}` : ''}
                 </div>
-                <div style={{ fontSize: 12, lineHeight: 1.55, color: 'rgba(255,255,255,0.72)', marginTop: 10 }}>
-                  {detail?.architect
-                    ? `Designed by ${detail.architect}.`
-                    : 'Design credits are not available for this course yet.'}{" "}
-                  {detail?.website
-                    ? `Official site: ${websiteLabel(detail.website)}.`
-                    : 'No official website is currently listed.'}
-                </div>
+                {(detail?.architect || detail?.website) && (
+                  <div style={{ fontSize: 12, lineHeight: 1.55, color: 'rgba(255,255,255,0.72)', marginTop: 10 }}>
+                    {detail.architect && `Designed by ${detail.architect}.`}
+                    {detail.architect && detail.website && ' '}
+                    {detail.website && `Official site: ${websiteLabel(detail.website)}.`}
+                  </div>
+                )}
               </div>
             </div>
 
