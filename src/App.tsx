@@ -45,10 +45,12 @@ function App() {
   const [sort, setSort] = useState<SortOption>("distance");
   const [filters, setFilters] = useState<Filters>({ holes: "Any" });
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [favoriteCourseData, setFavoriteCourseData] = useState<Record<string, CourseIndex>>({});
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
   const detailPaneWidth = showDetail ? "min(58vw, 620px)" : "360px";
 
   const favKey = user ? `favorites-${user.id}` : "favorite-course-ids";
+  const favDataKey = user ? `favorites-data-${user.id}` : "favorite-courses-data";
 
   useEffect(() => {
     try {
@@ -58,6 +60,15 @@ function App() {
       setFavoriteIds([]);
     }
   }, [favKey]);
+
+  useEffect(() => {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(favDataKey) || "{}");
+      setFavoriteCourseData(parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {});
+    } catch {
+      setFavoriteCourseData({});
+    }
+  }, [favDataKey]);
 
   const handleSearch = (query: string, radius: number) => {
     setSearchQuery(query);
@@ -86,12 +97,23 @@ function App() {
   };
 
   const handleToggleFavorite = (courseId: string) => {
-    setFavoriteIds((current) => {
-      const next = current.includes(courseId)
-        ? current.filter((id) => id !== courseId)
-        : [...current, courseId];
-      window.localStorage.setItem(favKey, JSON.stringify(next));
-      return next;
+    const isRemoving = favoriteIds.includes(courseId);
+    const next = isRemoving
+      ? favoriteIds.filter((id) => id !== courseId)
+      : [...favoriteIds, courseId];
+    setFavoriteIds(next);
+    window.localStorage.setItem(favKey, JSON.stringify(next));
+
+    setFavoriteCourseData((prev) => {
+      const updated = { ...prev };
+      if (isRemoving) {
+        delete updated[courseId];
+      } else {
+        const course = courses.find((c) => c.id === courseId);
+        if (course) updated[courseId] = course;
+      }
+      window.localStorage.setItem(favDataKey, JSON.stringify(updated));
+      return updated;
     });
   };
 
@@ -202,6 +224,14 @@ function App() {
           onClose={() => setShowUserPanel(false)}
           theme={theme}
           favoriteCount={favoriteIds.length}
+          favoriteCourses={favoriteIds
+            .map((id) => favoriteCourseData[id])
+            .filter((c): c is CourseIndex => Boolean(c))}
+          onSelectFavorite={(course) => {
+            setShowUserPanel(false);
+            const inResults = courses.find((c) => c.id === course.id);
+            handleSelectCourse(inResults ?? { ...course, distance: 0 });
+          }}
         />
       )}
 
