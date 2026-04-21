@@ -16,6 +16,10 @@ body {
   font-family: 'DM Sans', sans-serif;
 }
 
+#netlify-identity-widget {
+  z-index: 99999 !important;
+}
+
 @keyframes slideIn {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
