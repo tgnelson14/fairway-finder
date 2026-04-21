@@ -10,7 +10,13 @@ let coursesCache: CourseIndex[] | null = null;
 export async function loadCourseIndex(): Promise<CourseIndex[]> {
   if (coursesCache) return coursesCache;
   const res = await fetch("/courses.json");
-  coursesCache = await res.json();
+  const raw: CourseIndex[] = await res.json();
+  // The `holes` column in the source CSV maps a non-golf field by mistake.
+  // Derive hole count from par instead: ≤45 → 9-hole, >45 → 18-hole.
+  coursesCache = raw.map((c) => ({
+    ...c,
+    holes: c.par !== null ? (c.par <= 45 ? 9 : 18) : null,
+  }));
   return coursesCache!;
 }
 
