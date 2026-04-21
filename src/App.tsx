@@ -128,14 +128,33 @@ function App() {
       return a.n.localeCompare(b.n);
     });
 
+  const userPanelProps = {
+    onClose: () => setShowUserPanel(false),
+    theme,
+    favoriteCount: favoriteIds.length,
+    favoriteCourses: favoriteIds
+      .map((id) => favoriteCourseData[id])
+      .filter((c): c is CourseIndex => Boolean(c)),
+    onSelectFavorite: (course: CourseIndex) => {
+      setShowUserPanel(false);
+      setScreen("results");
+      const inResults = courses.find((c) => c.id === course.id);
+      handleSelectCourse(inResults ?? { ...course, distance: 0 });
+    },
+  };
+
   if (screen === "home") {
     return (
-      <HomeScreen
-        onSearch={handleSearch}
-        onSearchByCoords={handleSearchByCoords}
-        loading={loading}
-        theme={theme}
-      />
+      <>
+        <HomeScreen
+          onSearch={handleSearch}
+          onSearchByCoords={handleSearchByCoords}
+          loading={loading}
+          theme={theme}
+          onOpenProfile={() => setShowUserPanel(true)}
+        />
+        {showUserPanel && <UserPanel {...userPanelProps} />}
+      </>
     );
   }
 
@@ -219,21 +238,7 @@ function App() {
         </button>
       </div>
 
-      {showUserPanel && (
-        <UserPanel
-          onClose={() => setShowUserPanel(false)}
-          theme={theme}
-          favoriteCount={favoriteIds.length}
-          favoriteCourses={favoriteIds
-            .map((id) => favoriteCourseData[id])
-            .filter((c): c is CourseIndex => Boolean(c))}
-          onSelectFavorite={(course) => {
-            setShowUserPanel(false);
-            const inResults = courses.find((c) => c.id === course.id);
-            handleSelectCourse(inResults ?? { ...course, distance: 0 });
-          }}
-        />
-      )}
+      {showUserPanel && <UserPanel {...userPanelProps} />}
 
       {/* Error bar */}
       {error && (

@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import type { Theme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HomeScreenProps {
   onSearch: (query: string, radius: number) => void;
   onSearchByCoords: (lat: number, lng: number, radius: number) => void;
   loading: boolean;
   theme: Theme;
+  onOpenProfile: () => void;
 }
 
-export function HomeScreen({ onSearch, onSearchByCoords, loading, theme }: HomeScreenProps) {
+export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, onOpenProfile }: HomeScreenProps) {
   const [query, setQuery] = useState('');
   const [locating, setLocating] = useState(false);
   const [radius, setRadius] = useState(30);
+  const { user, login } = useAuth();
 
   const handleSearch = () => {
     if (query.trim()) onSearch(query.trim(), radius);
@@ -33,6 +36,45 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme }: HomeS
 
   return (
     <div style={{ height: '100vh', background: theme.bg, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      {/* Header */}
+      <div style={{
+        height: 56, background: theme.surface,
+        borderBottom: `1px solid ${theme.border}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px', flexShrink: 0,
+      }}>
+        <div style={{
+          fontFamily: 'Playfair Display, serif', fontSize: 22, fontWeight: 700,
+          color: theme.primary, letterSpacing: '-0.02em',
+        }}>
+          Fairway
+        </div>
+        <button
+          onClick={() => user ? onOpenProfile() : login()}
+          style={{
+            background: user ? theme.primary : 'none',
+            border: user ? 'none' : `1px solid ${theme.border}`,
+            cursor: 'pointer', borderRadius: '50%',
+            width: 34, height: 34,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: user ? '#fff' : theme.textSub,
+            fontSize: 13, fontWeight: 600,
+            fontFamily: 'DM Sans, sans-serif',
+          }}
+          title={user ? 'My profile' : 'Sign in'}
+        >
+          {user
+            ? (user.user_metadata?.full_name || user.email).charAt(0).toUpperCase()
+            : (
+              <svg width="16" height="16" fill="none" stroke={theme.textSub} strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            )
+          }
+        </button>
+      </div>
+
       {/* Centered content */}
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
