@@ -11,6 +11,17 @@ import { UserPanel } from "./components/UserPanel";
 import type { CourseIndex } from "./types";
 import "./index.css";
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 type SortOption = "distance" | "rating" | "name";
 
 interface Filters {
@@ -21,6 +32,7 @@ function App() {
   const { theme } = useTheme();
   const { user, login } = useAuth();
   const { courses, loading, error, searchedLocation, search, searchByCoords } = useCourseSearch();
+  const isMobile = useIsMobile();
 
   const [screen, setScreen] = useState<"home" | "results">("home");
   const [searchQuery, setSearchQuery] = useState("");
@@ -209,13 +221,14 @@ function App() {
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* Sidebar */}
         <div
-          className={`pane-sidebar${mobileView === "map" ? " hide-mobile" : ""}`}
           style={{
-            width: detailPaneWidth, background: theme.surface,
-            borderRight: `1px solid ${theme.border}`,
-            display: "flex", flexDirection: "column",
+            width: isMobile ? "100%" : detailPaneWidth,
+            display: isMobile && mobileView === "map" ? "none" : "flex",
+            background: theme.surface,
+            borderRight: isMobile ? "none" : `1px solid ${theme.border}`,
+            flexDirection: "column",
             flexShrink: 0, position: "relative",
-            transition: "width 0.22s ease",
+            transition: isMobile ? "none" : "width 0.22s ease",
           }}
         >
           {/* Sidebar header */}
@@ -329,8 +342,10 @@ function App() {
 
         {/* Map */}
         <div
-          className={mobileView === "list" ? "hide-mobile" : ""}
-          style={{ flex: 1, position: "relative" }}
+          style={{
+            flex: 1, position: "relative",
+            display: isMobile && mobileView === "list" ? "none" : undefined,
+          }}
         >
           <MapView
             courses={filteredCourses}

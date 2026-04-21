@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useCourseDetail } from '../hooks/useCourseDetail';
 import { useCourseWeather } from '../hooks/useCourseWeather';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +6,17 @@ import { Scorecard } from './Scorecard';
 import { ActiveRoundPanel } from './ActiveRoundPanel';
 import type { CourseIndex, NearbyPoint, TeeData } from '../types';
 import type { Theme } from '../contexts/ThemeContext';
+
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [breakpoint]);
+  return isMobile;
+}
 
 interface CourseDetailProps {
   courseId: string;
@@ -97,6 +108,7 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
   const [activeTee, setActiveTee] = useState<TeeData | null>(null);
   const roundDate = new Date().toISOString().split('T')[0];
   const { user, login } = useAuth();
+  const isMobile = useIsMobile();
   const { course: detail, loading, error } = useCourseDetail(courseId);
   const { weather, loading: weatherLoading, error: weatherError } = useCourseWeather(
     courseId,
@@ -111,7 +123,9 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
 
   return (
     <div style={{
-      position: 'absolute', inset: 0, zIndex: 10,
+      position: isMobile ? 'fixed' : 'absolute',
+      inset: 0,
+      zIndex: isMobile ? 200 : 10,
       background: theme.surface,
       display: 'flex', flexDirection: 'column',
       animation: 'slideIn 0.25s ease',

@@ -70,13 +70,7 @@ body {
     display: flex;
   }
 
-  /* Sidebar fills full width on mobile */
-  .pane-sidebar {
-    width: 100% !important;
-    border-right: none !important;
-  }
-
-  /* Hide element on mobile */
+  /* Hide element on mobile (e.g. navbar wordmark) */
   .hide-mobile {
     display: none !important;
   }
