@@ -3,7 +3,8 @@ import { useCourseDetail } from '../hooks/useCourseDetail';
 import { useCourseWeather } from '../hooks/useCourseWeather';
 import { useAuth } from '../contexts/AuthContext';
 import { Scorecard } from './Scorecard';
-import type { CourseIndex, NearbyPoint, CheckIn } from '../types';
+import { ActiveRoundPanel } from './ActiveRoundPanel';
+import type { CourseIndex, NearbyPoint, TeeData } from '../types';
 import type { Theme } from '../contexts/ThemeContext';
 
 interface CourseDetailProps {
@@ -92,11 +93,9 @@ function groupedNearby(nearby: NearbyPoint[]) {
 
 export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFavorite, theme }: CourseDetailProps) {
   const [tab, setTab] = useState<Tab>('overview');
-  const [showLogForm, setShowLogForm] = useState(false);
-  const [logScore, setLogScore] = useState('');
-  const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
-  const [logNotes, setLogNotes] = useState('');
-  const [logSaved, setLogSaved] = useState(false);
+  const [showTeeSelector, setShowTeeSelector] = useState(false);
+  const [activeTee, setActiveTee] = useState<TeeData | null>(null);
+  const roundDate = new Date().toISOString().split('T')[0];
   const { user, login } = useAuth();
   const { course: detail, loading, error } = useCourseDetail(courseId);
   const { weather, loading: weatherLoading, error: weatherError } = useCourseWeather(
@@ -104,28 +103,6 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
     course.lat,
     course.lng
   );
-
-  function handleSaveRound() {
-    if (!user) return;
-    const checkIn: CheckIn = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      courseId: course.id,
-      courseName: course.n,
-      courseCity: course.city,
-      courseSt: course.st,
-      date: logDate,
-      score: logScore ? parseInt(logScore, 10) : undefined,
-      notes: logNotes.trim() || undefined,
-    };
-    const key = `checkins-${user.id}`;
-    const existing: CheckIn[] = JSON.parse(localStorage.getItem(key) || '[]');
-    localStorage.setItem(key, JSON.stringify([checkIn, ...existing]));
-    setShowLogForm(false);
-    setLogScore('');
-    setLogNotes('');
-    setLogSaved(true);
-    setTimeout(() => setLogSaved(false), 3000);
-  }
 
   const firstTee = detail?.tees.male?.[0] || detail?.tees.female?.[0];
   const amenities = realAmenities(detail);
@@ -563,125 +540,140 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
 
       {/* CTA */}
       <div style={{ padding: '12px 16px', borderTop: `1px solid ${theme.border}`, flexShrink: 0 }}>
-        {logSaved ? (
-          <div style={{
-            textAlign: 'center', padding: '14px',
-            color: theme.accent, fontSize: 14, fontWeight: 600,
-            fontFamily: 'DM Sans, sans-serif',
-          }}>
-            ✓ Round logged!
-          </div>
-        ) : showLogForm ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                type="date"
-                value={logDate}
-                onChange={e => setLogDate(e.target.value)}
-                style={{
-                  flex: 1, padding: '10px 12px', borderRadius: 10,
-                  border: `1px solid ${theme.border}`,
-                  background: theme.surfaceAlt, color: theme.text,
-                  fontSize: 13, fontFamily: 'DM Sans, sans-serif',
-                  outline: 'none',
-                }}
-              />
-              <input
-                type="number"
-                value={logScore}
-                onChange={e => setLogScore(e.target.value)}
-                placeholder="Score"
-                min="18" max="200"
-                style={{
-                  width: 80, padding: '10px 12px', borderRadius: 10,
-                  border: `1px solid ${theme.border}`,
-                  background: theme.surfaceAlt, color: theme.text,
-                  fontSize: 13, fontFamily: 'DM Sans, sans-serif',
-                  outline: 'none',
-                }}
-              />
-            </div>
-            <input
-              type="text"
-              value={logNotes}
-              onChange={e => setLogNotes(e.target.value)}
-              placeholder="Notes (optional)"
-              style={{
-                padding: '10px 12px', borderRadius: 10,
-                border: `1px solid ${theme.border}`,
-                background: theme.surfaceAlt, color: theme.text,
-                fontSize: 13, fontFamily: 'DM Sans, sans-serif',
-                outline: 'none',
-              }}
-            />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => setShowLogForm(false)}
-                style={{
-                  flex: 1, padding: '12px', background: 'none',
-                  border: `1px solid ${theme.border}`, borderRadius: 10,
-                  cursor: 'pointer', fontSize: 13, color: theme.textSub,
-                  fontFamily: 'DM Sans, sans-serif',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveRound}
-                style={{
-                  flex: 2, padding: '12px',
-                  background: theme.primary, color: '#fff',
-                  border: 'none', borderRadius: 10, cursor: 'pointer',
-                  fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
-                }}
-              >
-                Save Round
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => {
-                const q = encodeURIComponent(`${course.n} ${course.city} ${course.st} golf course directions`);
-                window.open(`https://www.google.com/maps/search/${q}`, '_blank');
-              }}
-              style={{
-                flex: 1, padding: '14px',
-                background: theme.primary, color: '#fff',
-                border: 'none', borderRadius: 12, cursor: 'pointer',
-                fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-            >
-              Directions
-              <svg width="14" height="14" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M5 12h14M12 5l7 7-7 7"/>
-              </svg>
-            </button>
-            <button
-              onClick={() => user ? setShowLogForm(true) : login()}
-              style={{
-                flex: 1, padding: '14px',
-                background: 'none', color: theme.primary,
-                border: `2px solid ${theme.primary}`,
-                borderRadius: 12, cursor: 'pointer',
-                fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              }}
-            >
-              Log Round
-              <svg width="14" height="14" fill="none" stroke={theme.primary} strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"/>
-                <path d="M17.5 3.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 8.5-8.5z"/>
-              </svg>
-            </button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => {
+              const q = encodeURIComponent(`${course.n} ${course.city} ${course.st} golf course directions`);
+              window.open(`https://www.google.com/maps/search/${q}`, '_blank');
+            }}
+            style={{
+              flex: 1, padding: '14px',
+              background: theme.primary, color: '#fff',
+              border: 'none', borderRadius: 12, cursor: 'pointer',
+              fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+          >
+            Directions
+            <svg width="14" height="14" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+          <button
+            onClick={() => user ? setShowTeeSelector(true) : login()}
+            style={{
+              flex: 1, padding: '14px',
+              background: 'none', color: theme.primary,
+              border: `2px solid ${theme.primary}`,
+              borderRadius: 12, cursor: 'pointer',
+              fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            Start Round
+            <svg width="14" height="14" fill="none" stroke={theme.primary} strokeWidth="2" viewBox="0 0 24 24">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* Tee selector overlay */}
+      {showTeeSelector && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 20,
+          background: theme.surface,
+          display: 'flex', flexDirection: 'column',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            padding: '14px 16px', borderBottom: `1px solid ${theme.border}`,
+            display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
+          }}>
+            <button
+              onClick={() => setShowTeeSelector(false)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}
+            >
+              <svg width="18" height="18" fill="none" stroke={theme.textSub} strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 16, fontWeight: 700, color: theme.text }}>
+              Choose Tees
+            </div>
+          </div>
+
+          <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+            {loading && (
+              <div style={{ textAlign: 'center', padding: 24, color: theme.textMuted, fontSize: 13 }}>
+                Loading tee data…
+              </div>
+            )}
+
+            {!loading && (() => {
+              const options: Array<{ tee: TeeData; gender: string }> = [
+                ...(detail?.tees.male?.map(t => ({ tee: t, gender: "Men's" })) ?? []),
+                ...(detail?.tees.female?.map(t => ({ tee: t, gender: "Women's" })) ?? []),
+              ];
+
+              if (options.length === 0) {
+                return (
+                  <div style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center', padding: 24 }}>
+                    No tee data available for this course.
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {options.map(({ tee, gender }, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setActiveTee(tee); setShowTeeSelector(false); }}
+                      style={{
+                        padding: '14px 16px', borderRadius: 12,
+                        background: theme.surfaceAlt, border: `1px solid ${theme.border}`,
+                        cursor: 'pointer', textAlign: 'left',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 15, fontWeight: 600, color: theme.text }}>
+                          {gender} — {tee.tee_name}
+                        </div>
+                        <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 3 }}>
+                          {tee.total_yards.toLocaleString()} yds  •  Rating {tee.course_rating}  •  Slope {tee.slope_rating}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 700, color: theme.primary }}>
+                        Par {tee.par_total}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Active round scoring panel */}
+      {activeTee && user && (
+        <ActiveRoundPanel
+          courseId={course.id}
+          courseName={course.n}
+          courseCity={course.city}
+          courseSt={course.st}
+          tee={activeTee}
+          date={roundDate}
+          userId={user.id}
+          theme={theme}
+          onClose={() => setActiveTee(null)}
+        />
+      )}
     </div>
   );
 }

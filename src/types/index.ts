@@ -84,6 +84,7 @@ export interface CheckIn {
   date: string;
   score?: number;
   notes?: string;
+  holeScores?: number[];
 }
 
 export interface GeocodingResult {
