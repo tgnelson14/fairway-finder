@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Theme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -10,14 +10,137 @@ interface HomeScreenProps {
   onOpenProfile: () => void;
 }
 
+type Suggestion = {
+  shortName: string;
+  fullName: string;
+  lat: number;
+  lng: number;
+};
+
+type NominatimResult = {
+  display_name: string;
+  lat: string;
+  lon: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    county?: string;
+    state?: string;
+    country?: string;
+    country_code?: string;
+  };
+};
+
+function toShortName(r: NominatimResult): string {
+  const a = r.address;
+  const locality = a?.city || a?.town || a?.village || a?.county;
+  if (locality && a?.state) return `${locality}, ${a.state}`;
+  if (locality && a?.country) return `${locality}, ${a.country}`;
+  // Fall back to first two segments of display_name
+  return r.display_name.split(',').slice(0, 2).join(',').trim();
+}
+
 export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, onOpenProfile }: HomeScreenProps) {
   const [query, setQuery] = useState('');
   const [locating, setLocating] = useState(false);
   const [radius, setRadius] = useState(30);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+  const [fetching, setFetching] = useState(false);
   const { user, login } = useAuth();
+  const abortRef = useRef<AbortController | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Debounced autocomplete fetch
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+      setFetching(true);
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6&addressdetails=1`,
+          {
+            headers: { 'User-Agent': 'FairwayFinder/1.0' },
+            signal: abortRef.current.signal,
+          }
+        );
+        const results: NominatimResult[] = await res.json();
+        const seen = new Set<string>();
+        const next: Suggestion[] = [];
+        for (const r of results) {
+          const shortName = toShortName(r);
+          if (!seen.has(shortName)) {
+            seen.add(shortName);
+            next.push({ shortName, fullName: r.display_name, lat: parseFloat(r.lat), lng: parseFloat(r.lon) });
+          }
+        }
+        setSuggestions(next);
+        setShowSuggestions(next.length > 0);
+        setHighlighted(-1);
+      } catch {
+        // AbortError or network failure — ignore
+      } finally {
+        setFetching(false);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const commitSuggestion = (s: Suggestion) => {
+    setQuery(s.shortName);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    onSearchByCoords(s.lat, s.lng, radius);
+  };
 
   const handleSearch = () => {
-    if (query.trim()) onSearch(query.trim(), radius);
+    if (query.trim()) {
+      setShowSuggestions(false);
+      onSearch(query.trim(), radius);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions) {
+      if (e.key === 'Enter') handleSearch();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlighted((h) => Math.min(h + 1, suggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlighted((h) => Math.max(h - 1, -1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlighted >= 0) {
+        commitSuggestion(suggestions[highlighted]);
+      } else {
+        handleSearch();
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setHighlighted(-1);
+    }
   };
 
   const handleLocation = () => {
@@ -28,9 +151,7 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, onOpenP
         setLocating(false);
         onSearchByCoords(pos.coords.latitude, pos.coords.longitude, radius);
       },
-      () => {
-        setLocating(false);
-      }
+      () => setLocating(false)
     );
   };
 
@@ -115,30 +236,112 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, onOpenP
         {/* Search area */}
         <div style={{ width: '100%', maxWidth: 440 }}>
           <div className="home-search-row" style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-            <div
-              className="home-search-input-wrap"
-              style={{
-                flex: 1, display: 'flex', alignItems: 'center', gap: 10,
-                padding: '14px 16px', background: theme.surface,
-                borderRadius: 14, border: `1px solid ${theme.border}`,
-                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-              }}
-            >
-              <svg width="18" height="18" fill="none" stroke={theme.textMuted} strokeWidth="2" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-              </svg>
-              <input
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                placeholder="City, zip code, or course name"
+
+            {/* Input with autocomplete dropdown */}
+            <div ref={containerRef} style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+              <div
+                className="home-search-input-wrap"
                 style={{
-                  flex: 1, border: 'none', outline: 'none',
-                  background: 'transparent', fontSize: 14,
-                  color: theme.text, fontFamily: 'DM Sans, sans-serif',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '14px 16px', background: theme.surface,
+                  borderRadius: showSuggestions ? '14px 14px 0 0' : 14,
+                  border: `1px solid ${showSuggestions ? theme.primary : theme.border}`,
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                  transition: 'border-color 0.15s',
                 }}
-              />
+              >
+                {fetching ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={theme.primary} strokeWidth="2"
+                    style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" fill="none" stroke={theme.textMuted} strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                  </svg>
+                )}
+                <input
+                  value={query}
+                  onChange={e => { setQuery(e.target.value); }}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                  placeholder="City, zip code, or course name"
+                  autoComplete="off"
+                  style={{
+                    flex: 1, border: 'none', outline: 'none',
+                    background: 'transparent', fontSize: 14,
+                    color: theme.text, fontFamily: 'DM Sans, sans-serif',
+                  }}
+                />
+                {query && (
+                  <button
+                    onClick={() => { setQuery(''); setSuggestions([]); setShowSuggestions(false); }}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                      display: 'flex', alignItems: 'center', color: theme.textMuted, flexShrink: 0,
+                    }}
+                    aria-label="Clear"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {/* Suggestions dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                  background: theme.surface,
+                  border: `1px solid ${theme.primary}`,
+                  borderTop: `1px solid ${theme.border}`,
+                  borderRadius: '0 0 14px 14px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                  overflow: 'hidden',
+                }}>
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onMouseDown={e => { e.preventDefault(); commitSuggestion(s); }}
+                      onMouseEnter={() => setHighlighted(i)}
+                      style={{
+                        width: '100%', padding: '11px 16px',
+                        background: i === highlighted ? theme.accentLight : 'transparent',
+                        border: 'none',
+                        borderTop: i === 0 ? 'none' : `1px solid ${theme.border}`,
+                        cursor: 'pointer', textAlign: 'left',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        transition: 'background 0.1s',
+                      }}
+                    >
+                      <svg width="13" height="13" fill="none" stroke={theme.primary} strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                        <circle cx="12" cy="9" r="2.5"/>
+                      </svg>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{
+                          fontSize: 13, fontWeight: 600, color: theme.text,
+                          fontFamily: 'DM Sans, sans-serif',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {s.shortName}
+                        </div>
+                        <div style={{
+                          fontSize: 11, color: theme.textMuted,
+                          fontFamily: 'DM Sans, sans-serif',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          marginTop: 1,
+                        }}>
+                          {s.fullName}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
             <div className="home-search-controls">
               <select
                 value={radius}
