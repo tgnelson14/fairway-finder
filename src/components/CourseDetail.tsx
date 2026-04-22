@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useCourseDetail } from '../hooks/useCourseDetail';
 import { useCourseWeather } from '../hooks/useCourseWeather';
 import { useAuth } from '../contexts/AuthContext';
@@ -673,8 +674,8 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
         </div>
       )}
 
-      {/* Active round scoring panel */}
-      {activeTee && user && (
+      {/* Active round scoring panel — portaled to body to escape CSS transform containment */}
+      {activeTee && user && createPortal(
         <ActiveRoundPanel
           courseId={course.id}
           courseName={course.n}
@@ -685,7 +686,8 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
           userId={user.id}
           theme={theme}
           onClose={() => setActiveTee(null)}
-        />
+        />,
+        document.body
       )}
     </div>
   );
