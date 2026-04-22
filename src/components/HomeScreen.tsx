@@ -15,30 +15,46 @@ type Suggestion = {
   fullName: string;
   lat: number;
   lng: number;
+  type: string;
 };
 
-type NominatimResult = {
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: {
+type PhotonFeature = {
+  geometry: { coordinates: [number, number] }; // [lng, lat]
+  properties: {
+    name?: string;
+    type?: string;
     city?: string;
-    town?: string;
-    village?: string;
-    county?: string;
     state?: string;
     country?: string;
-    country_code?: string;
+    countrycode?: string;
   };
 };
 
-function toShortName(r: NominatimResult): string {
-  const a = r.address;
-  const locality = a?.city || a?.town || a?.village || a?.county;
-  if (locality && a?.state) return `${locality}, ${a.state}`;
-  if (locality && a?.country) return `${locality}, ${a.country}`;
-  // Fall back to first two segments of display_name
-  return r.display_name.split(',').slice(0, 2).join(',').trim();
+// Lower number = shown first
+const TYPE_PRIORITY: Record<string, number> = {
+  city: 0, town: 0, village: 0, hamlet: 0,
+  suburb: 1, quarter: 1, neighbourhood: 1,
+  county: 2, district: 2,
+  state: 3, region: 3,
+  country: 4,
+};
+
+const GEOGRAPHIC_TYPES = new Set(Object.keys(TYPE_PRIORITY));
+
+function photonToSuggestion(f: PhotonFeature): Suggestion | null {
+  const p = f.properties;
+  const type = p.type ?? '';
+  if (!GEOGRAPHIC_TYPES.has(type)) return null;
+  const name = p.name ?? '';
+  if (!name) return null;
+  const [lng, lat] = f.geometry.coordinates;
+  const shortName = p.state
+    ? `${name}, ${p.state}`
+    : p.country
+    ? `${name}, ${p.country}`
+    : name;
+  const fullName = [name, p.state, p.country].filter(Boolean).join(', ');
+  return { shortName, fullName, lat, lng, type };
 }
 
 export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, onOpenProfile }: HomeScreenProps) {
@@ -66,23 +82,21 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, onOpenP
       setFetching(true);
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6&addressdetails=1`,
-          {
-            headers: { 'User-Agent': 'FairwayFinder/1.0' },
-            signal: abortRef.current.signal,
-          }
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=10&lang=en`,
+          { signal: abortRef.current.signal }
         );
-        const results: NominatimResult[] = await res.json();
+        const json: { features: PhotonFeature[] } = await res.json();
         const seen = new Set<string>();
         const next: Suggestion[] = [];
-        for (const r of results) {
-          const shortName = toShortName(r);
-          if (!seen.has(shortName)) {
-            seen.add(shortName);
-            next.push({ shortName, fullName: r.display_name, lat: parseFloat(r.lat), lng: parseFloat(r.lon) });
+        for (const f of json.features) {
+          const s = photonToSuggestion(f);
+          if (s && !seen.has(s.shortName)) {
+            seen.add(s.shortName);
+            next.push(s);
           }
         }
-        setSuggestions(next);
+        next.sort((a, b) => (TYPE_PRIORITY[a.type] ?? 5) - (TYPE_PRIORITY[b.type] ?? 5));
+        setSuggestions(next.slice(0, 6));
         setShowSuggestions(next.length > 0);
         setHighlighted(-1);
       } catch {
@@ -90,7 +104,7 @@ export function HomeScreen({ onSearch, onSearchByCoords, loading, theme, onOpenP
       } finally {
         setFetching(false);
       }
-    }, 350);
+    }, 250);
     return () => clearTimeout(timer);
   }, [query]);
 
