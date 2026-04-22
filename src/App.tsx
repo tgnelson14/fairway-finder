@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTheme } from "./contexts/ThemeContext";
 import { useAuth } from "./contexts/AuthContext";
 import { useCourseSearch } from "./hooks/useCourseSearch";
@@ -10,6 +10,39 @@ import { MapView } from "./components/MapView";
 import { UserPanel } from "./components/UserPanel";
 import type { CourseIndex } from "./types";
 import "./index.css";
+
+async function apiFetchFavorites(token: string): Promise<{ ids: string[]; data: Record<string, CourseIndex> } | null> {
+  try {
+    const res = await fetch('/favorites', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function apiSaveFavorites(token: string, ids: string[], data: Record<string, CourseIndex>): Promise<void> {
+  try {
+    await fetch('/favorites', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, data }),
+    });
+  } catch { /* silent — localStorage remains the local source of truth */ }
+}
+
+function readLocalFavorites(favKey: string, favDataKey: string): { ids: string[]; data: Record<string, CourseIndex> } {
+  try {
+    const ids = JSON.parse(window.localStorage.getItem(favKey) || '[]');
+    const data = JSON.parse(window.localStorage.getItem(favDataKey) || '{}');
+    return {
+      ids: Array.isArray(ids) ? ids : [],
+      data: data && typeof data === 'object' && !Array.isArray(data) ? data : {},
+    };
+  } catch {
+    return { ids: [], data: {} };
+  }
+}
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint);
@@ -30,7 +63,7 @@ interface Filters {
 
 function App() {
   const { theme } = useTheme();
-  const { user, login } = useAuth();
+  const { user, login, getToken } = useAuth();
   const { courses, loading, error, searchedLocation, search, searchByCoords } = useCourseSearch();
   const isMobile = useIsMobile();
 
@@ -52,23 +85,34 @@ function App() {
   const favKey = user ? `favorites-${user.id}` : "favorite-course-ids";
   const favDataKey = user ? `favorites-data-${user.id}` : "favorite-courses-data";
 
-  useEffect(() => {
-    try {
-      const parsed = JSON.parse(window.localStorage.getItem(favKey) || "[]");
-      setFavoriteIds(Array.isArray(parsed) ? parsed : []);
-    } catch {
-      setFavoriteIds([]);
+  const loadFavorites = useCallback(async () => {
+    if (!user) {
+      const { ids, data } = readLocalFavorites(favKey, favDataKey);
+      setFavoriteIds(ids);
+      setFavoriteCourseData(data);
+      return;
     }
-  }, [favKey]);
+    const token = await getToken();
+    if (!token) {
+      const { ids, data } = readLocalFavorites(favKey, favDataKey);
+      setFavoriteIds(ids);
+      setFavoriteCourseData(data);
+      return;
+    }
+    const remote = await apiFetchFavorites(token);
+    if (remote) {
+      setFavoriteIds(remote.ids);
+      setFavoriteCourseData(remote.data);
+      window.localStorage.setItem(favKey, JSON.stringify(remote.ids));
+      window.localStorage.setItem(favDataKey, JSON.stringify(remote.data));
+    } else {
+      const { ids, data } = readLocalFavorites(favKey, favDataKey);
+      setFavoriteIds(ids);
+      setFavoriteCourseData(data);
+    }
+  }, [user, favKey, favDataKey, getToken]);
 
-  useEffect(() => {
-    try {
-      const parsed = JSON.parse(window.localStorage.getItem(favDataKey) || "{}");
-      setFavoriteCourseData(parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {});
-    } catch {
-      setFavoriteCourseData({});
-    }
-  }, [favDataKey]);
+  useEffect(() => { loadFavorites(); }, [loadFavorites]);
 
   const handleSearch = (query: string, radius: number) => {
     setSearchQuery(query);
@@ -98,23 +142,23 @@ function App() {
 
   const handleToggleFavorite = (courseId: string) => {
     const isRemoving = favoriteIds.includes(courseId);
-    const next = isRemoving
+    const nextIds = isRemoving
       ? favoriteIds.filter((id) => id !== courseId)
       : [...favoriteIds, courseId];
-    setFavoriteIds(next);
-    window.localStorage.setItem(favKey, JSON.stringify(next));
-
-    setFavoriteCourseData((prev) => {
-      const updated = { ...prev };
-      if (isRemoving) {
-        delete updated[courseId];
-      } else {
-        const course = courses.find((c) => c.id === courseId);
-        if (course) updated[courseId] = course;
-      }
-      window.localStorage.setItem(favDataKey, JSON.stringify(updated));
-      return updated;
-    });
+    const nextData = { ...favoriteCourseData };
+    if (isRemoving) {
+      delete nextData[courseId];
+    } else {
+      const course = courses.find((c) => c.id === courseId);
+      if (course) nextData[courseId] = course;
+    }
+    setFavoriteIds(nextIds);
+    setFavoriteCourseData(nextData);
+    window.localStorage.setItem(favKey, JSON.stringify(nextIds));
+    window.localStorage.setItem(favDataKey, JSON.stringify(nextData));
+    if (user) {
+      getToken().then((token) => { if (token) apiSaveFavorites(token, nextIds, nextData); });
+    }
   };
 
   const filteredCourses = courses

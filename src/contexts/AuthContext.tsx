@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 
 export interface NetlifyUser {
   id: string;
@@ -6,10 +6,16 @@ export interface NetlifyUser {
   user_metadata: { full_name?: string; avatar_url?: string };
 }
 
+interface IdentityToken {
+  access_token: string;
+  expires_at: number; // Unix timestamp in seconds
+}
+
 interface AuthContextValue {
   user: NetlifyUser | null;
   login: () => void;
   logout: () => void;
+  getToken: () => Promise<string | null>;
 }
 
 declare global {
@@ -20,6 +26,8 @@ declare global {
       open(): void;
       close(): void;
       logout(): void;
+      currentUser(): (NetlifyUser & { token: IdentityToken }) | null;
+      refresh(): Promise<(NetlifyUser & { token: IdentityToken }) | null>;
     };
   }
 }
@@ -28,6 +36,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   login: () => {},
   logout: () => {},
+  getToken: async () => null,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -46,11 +55,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     identity.init();
   }, []);
 
+  const getToken = useCallback(async (): Promise<string | null> => {
+    const identity = window.netlifyIdentity;
+    if (!identity) return null;
+    const current = identity.currentUser();
+    if (!current) return null;
+    // Refresh if expiring within 60 seconds
+    if ((current.token.expires_at - 60) * 1000 < Date.now()) {
+      const refreshed = await identity.refresh().catch(() => null);
+      return refreshed?.token?.access_token ?? null;
+    }
+    return current.token.access_token;
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
       login: () => window.netlifyIdentity?.open(),
       logout: () => window.netlifyIdentity?.logout(),
+      getToken,
     }}>
       {children}
     </AuthContext.Provider>
