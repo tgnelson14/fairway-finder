@@ -5,10 +5,18 @@ import type { GpsPosition } from '../hooks/useGpsPosition';
 import { haversineYards } from '../services/overpass';
 import type { Theme } from '../contexts/ThemeContext';
 
-// Free ESRI satellite imagery — no API key required
-const SATELLITE_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-const ESRI_ATTR = 'Tiles &copy; Esri &mdash; Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP';
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
+
+// Mapbox Satellite — high-res global imagery (requires VITE_MAPBOX_TOKEN)
+// 512px tiles with zoomOffset -1 gives full retina quality in Leaflet
+const MAPBOX_URL = MAPBOX_TOKEN
+  ? `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`
+  : null;
+const MAPBOX_ATTR = '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+
+// ESRI fallback when no Mapbox token is configured
+const ESRI_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const ESRI_ATTR = 'Tiles &copy; Esri';
 
 function playerIcon() {
   return L.divIcon({
@@ -45,12 +53,11 @@ function MapController({ player, green, fallback, holeNumber }: {
     lastHole.current = holeNumber;
 
     if (green) {
-      // Center on the green; player dot will appear wherever they are
-      map.setView([green.lat, green.lng], 17, { animate: true });
+      map.setView([green.lat, green.lng], 18, { animate: true });
     } else if (player) {
-      map.setView([player.lat, player.lng], 17, { animate: true });
+      map.setView([player.lat, player.lng], 18, { animate: true });
     } else {
-      map.setView([fallback.lat, fallback.lng], 16, { animate: true });
+      map.setView([fallback.lat, fallback.lng], 17, { animate: true });
     }
   }, [holeNumber, green, player, fallback, map]);
 
@@ -84,12 +91,15 @@ export function HoleMap({ holeNumber, courseLat, courseLng, player, green, onSet
     <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
       <MapContainer
         center={[courseLat, courseLng]}
-        zoom={16}
+        zoom={18}
         style={{ width: '100%', height: '100%' }}
         zoomControl={false}
         attributionControl={false}
       >
-        <TileLayer url={SATELLITE_URL} attribution={ESRI_ATTR} maxZoom={19} />
+        {MAPBOX_URL
+          ? <TileLayer url={MAPBOX_URL} attribution={MAPBOX_ATTR} maxZoom={20} tileSize={512} zoomOffset={-1} />
+          : <TileLayer url={ESRI_URL} attribution={ESRI_ATTR} maxZoom={19} />
+        }
 
         <MapController
           player={player}
@@ -180,14 +190,14 @@ export function HoleMap({ holeNumber, courseLat, courseLng, player, green, onSet
         </button>
       )}
 
-      {/* ESRI attribution — required */}
+      {/* Attribution — required by both Mapbox and ESRI ToS */}
       <div style={{
         position: 'absolute', bottom: 0, right: 0, zIndex: 1000,
         fontSize: 9, color: 'rgba(255,255,255,0.5)',
         background: 'rgba(0,0,0,0.3)', padding: '2px 5px',
         pointerEvents: 'none',
       }}>
-        © Esri
+        {MAPBOX_URL ? '© Mapbox © OSM' : '© Esri'}
       </div>
     </div>
   );
