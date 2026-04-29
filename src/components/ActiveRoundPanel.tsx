@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import type { TeeData, CheckIn } from '../types';
 import type { Theme } from '../contexts/ThemeContext';
 import { useGpsPosition } from '../hooks/useGpsPosition';
-import { fetchGolfHoleWaypoints, haversineYards } from '../services/overpass';
+import { useHolePins } from '../hooks/useHolePins';
+import { fetchGolfHoleWaypoints } from '../services/overpass';
 import type { HoleWaypoints } from '../services/overpass';
+import { HoleMap } from './HoleMap';
 
 interface Props {
   courseId: string;
@@ -38,17 +40,16 @@ function cellBg(diff: number) {
 export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, courseLat, courseLng, tee, date, userId, theme, onClose }: Props) {
   const [current, setCurrent] = useState(0);
   const [scores, setScores] = useState<number[]>(tee.holes.map(h => h.par));
-  const [waypoints, setWaypoints] = useState<HoleWaypoints[]>([]);
-  const [waypointsLoading, setWaypointsLoading] = useState(true);
+  const [osmWaypoints, setOsmWaypoints] = useState<HoleWaypoints[]>([]);
 
   const { position: gps } = useGpsPosition();
+  const { getPin, setPin, clearPin } = useHolePins(courseId);
 
+  // Try to load OSM hole waypoints once
   useEffect(() => {
-    setWaypointsLoading(true);
     fetchGolfHoleWaypoints(courseLat, courseLng)
-      .then(setWaypoints)
-      .catch(() => setWaypoints([]))
-      .finally(() => setWaypointsLoading(false));
+      .then(setOsmWaypoints)
+      .catch(() => setOsmWaypoints([]));
   }, [courseLat, courseLng]);
 
   const totalHoles = tee.holes.length;
@@ -60,15 +61,10 @@ export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, c
   const totalScore = scores.reduce((a, b) => a + b, 0);
   const totalDiff  = totalScore - tee.par_total;
 
-  const holeWp = waypoints.find(w => w.holeNumber === current + 1);
-  const distToGreen = gps && holeWp?.green
-    ? haversineYards(gps.lat, gps.lng, holeWp.green.lat, holeWp.green.lng)
-    : null;
-  const distToTee = gps && holeWp?.tee
-    ? haversineYards(gps.lat, gps.lng, holeWp.tee.lat, holeWp.tee.lng)
-    : null;
-
-  const hasOsmData = !waypointsLoading && waypoints.length > 0;
+  // Resolve green position: user pin > OSM data
+  const osmGreen = osmWaypoints.find(w => w.holeNumber === current + 1)?.green ?? null;
+  const userPin  = getPin(current + 1);
+  const green    = userPin ?? osmGreen;
 
   function adjust(delta: number) {
     setScores(prev => {
@@ -141,49 +137,73 @@ export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, c
         </button>
       </div>
 
-      {/* GPS distance strip */}
-      <GpsStrip
-        gps={gps}
-        distToGreen={distToGreen}
-        distToTee={distToTee}
-        hasOsmData={hasOsmData}
-        waypointsLoading={waypointsLoading}
-        holeWp={holeWp}
-        theme={theme}
-      />
-
-      {/* Hole display */}
+      {/* Hole info strip */}
       <div style={{
-        flex: 1, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        padding: '16px 32px', gap: 6,
+        background: theme.surface,
+        borderBottom: `1px solid ${theme.border}`,
+        padding: '8px 16px',
+        display: 'flex', alignItems: 'center', gap: 0,
+        flexShrink: 0,
       }}>
-        <div style={{ fontSize: 11, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-          Hole {current + 1} of {totalHoles}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flex: 1 }}>
+          <span style={{
+            fontFamily: 'Playfair Display, serif',
+            fontSize: 28, fontWeight: 700, color: theme.text, lineHeight: 1,
+          }}>
+            {current + 1}
+          </span>
+          <span style={{ fontSize: 11, color: theme.textMuted }}>/ {totalHoles}</span>
         </div>
 
-        {/* Hole stats */}
-        <div style={{ display: 'flex', gap: 20, marginTop: 4 }}>
+        <div style={{ display: 'flex', gap: 18 }}>
           {[
             { label: 'Par',   value: hole.par },
-            hole.yardage  ? { label: 'Yards', value: hole.yardage }  : null,
-            hole.handicap ? { label: 'HCP',   value: hole.handicap } : null,
+            hole.yardage  ? { label: 'Yds', value: hole.yardage }  : null,
+            hole.handicap ? { label: 'HCP', value: hole.handicap } : null,
           ].filter(Boolean).map(s => (
             <div key={s!.label} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 10, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s!.label}</div>
-              <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 26, fontWeight: 700, color: theme.text }}>{s!.value}</div>
+              <div style={{ fontSize: 9, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s!.label}</div>
+              <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 18, fontWeight: 700, color: theme.primary, lineHeight: 1 }}>{s!.value}</div>
             </div>
           ))}
         </div>
 
-        {/* Score entry */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 28, marginTop: 20 }}>
+        {/* GPS dot */}
+        <div style={{
+          marginLeft: 16,
+          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+          background: gps ? '#4A9B6F' : '#aaa',
+          boxShadow: gps ? '0 0 0 3px rgba(74,155,111,0.25)' : 'none',
+        }} />
+      </div>
+
+      {/* Satellite hole map — takes up remaining space */}
+      <HoleMap
+        holeNumber={current + 1}
+        courseLat={courseLat}
+        courseLng={courseLng}
+        player={gps}
+        green={green}
+        onSetGreen={(lat, lng) => setPin(current + 1, { lat, lng })}
+        onClearGreen={() => clearPin(current + 1)}
+        theme={theme}
+      />
+
+      {/* Score entry + prev/next */}
+      <div style={{
+        background: theme.surface,
+        borderTop: `1px solid ${theme.border}`,
+        padding: '10px 16px',
+        flexShrink: 0,
+      }}>
+        {/* Score row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 10 }}>
           <button
             onClick={() => adjust(-1)}
             style={{
-              width: 64, height: 64, borderRadius: '50%',
+              width: 52, height: 52, borderRadius: '50%',
               background: theme.surfaceAlt, border: `2px solid ${theme.border}`,
-              cursor: 'pointer', fontSize: 32, color: theme.text,
+              cursor: 'pointer', fontSize: 28, color: theme.text,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontWeight: 300, lineHeight: 1,
             }}
@@ -191,21 +211,24 @@ export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, c
             −
           </button>
 
-          <div style={{ textAlign: 'center', minWidth: 80 }}>
+          <div style={{ textAlign: 'center', minWidth: 72 }}>
             <div style={{
               fontFamily: 'Playfair Display, serif',
-              fontSize: 80, fontWeight: 700, color: theme.text, lineHeight: 1,
+              fontSize: 56, fontWeight: 700, color: theme.text, lineHeight: 1,
             }}>
               {score}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: label.color, marginTop: 2 }}>
+              {diff === 0 ? 'Par' : `${diff > 0 ? '+' : ''}${diff} · ${label.text}`}
             </div>
           </div>
 
           <button
             onClick={() => adjust(1)}
             style={{
-              width: 64, height: 64, borderRadius: '50%',
+              width: 52, height: 52, borderRadius: '50%',
               background: theme.surfaceAlt, border: `2px solid ${theme.border}`,
-              cursor: 'pointer', fontSize: 32, color: theme.text,
+              cursor: 'pointer', fontSize: 28, color: theme.text,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontWeight: 300, lineHeight: 1,
             }}
@@ -214,68 +237,52 @@ export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, c
           </button>
         </div>
 
-        <div style={{ fontSize: 15, fontWeight: 600, color: label.color, marginTop: 6, letterSpacing: '0.02em' }}>
-          {diff === 0 ? 'Par' : `${diff > 0 ? '+' : ''}${diff}  ·  ${label.text}`}
-        </div>
-      </div>
-
-      {/* Prev / Next */}
-      <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px', flexShrink: 0 }}>
-        <button
-          onClick={() => setCurrent(Math.max(0, current - 1))}
-          disabled={current === 0}
-          style={{
-            flex: 1, padding: '13px', borderRadius: 12,
-            background: 'none', border: `1px solid ${theme.border}`,
-            cursor: current === 0 ? 'default' : 'pointer',
-            color: current === 0 ? theme.textMuted : theme.textSub,
-            fontSize: 13, fontFamily: 'DM Sans, sans-serif',
-            opacity: current === 0 ? 0.35 : 1,
-          }}
-        >
-          ← Prev
-        </button>
-        <button
-          onClick={() => setCurrent(Math.min(totalHoles - 1, current + 1))}
-          disabled={current === totalHoles - 1}
-          style={{
-            flex: 1, padding: '13px', borderRadius: 12,
-            background: current < totalHoles - 1 ? theme.primary : 'none',
-            border: current < totalHoles - 1 ? 'none' : `1px solid ${theme.border}`,
-            cursor: current === totalHoles - 1 ? 'default' : 'pointer',
-            color: current < totalHoles - 1 ? '#fff' : theme.textMuted,
-            fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
-            opacity: current === totalHoles - 1 ? 0.35 : 1,
-          }}
-        >
-          Next →
-        </button>
-      </div>
-
-      {/* Running total + mini scorecard */}
-      <div style={{
-        borderTop: `1px solid ${theme.border}`,
-        background: theme.surface, flexShrink: 0,
-        padding: '12px 16px',
-      }}>
-        {/* Totals */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 12 }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 10, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Score</div>
-            <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 24, fontWeight: 700, color: theme.text }}>{totalScore}</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 10, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>vs Par</div>
-            <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 24, fontWeight: 700, color: totalDiffColor }}>{totalDiffStr}</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 10, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Par</div>
-            <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 24, fontWeight: 700, color: theme.textSub }}>{tee.par_total}</div>
-          </div>
+        {/* Prev / Next */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <button
+            onClick={() => setCurrent(Math.max(0, current - 1))}
+            disabled={current === 0}
+            style={{
+              flex: 1, padding: '11px', borderRadius: 10,
+              background: 'none', border: `1px solid ${theme.border}`,
+              cursor: current === 0 ? 'default' : 'pointer',
+              color: current === 0 ? theme.textMuted : theme.textSub,
+              fontSize: 13, fontFamily: 'DM Sans, sans-serif',
+              opacity: current === 0 ? 0.35 : 1,
+            }}
+          >
+            ← Prev
+          </button>
+          <button
+            onClick={() => setCurrent(Math.min(totalHoles - 1, current + 1))}
+            disabled={current === totalHoles - 1}
+            style={{
+              flex: 1, padding: '11px', borderRadius: 10,
+              background: current < totalHoles - 1 ? theme.primary : 'none',
+              border: current < totalHoles - 1 ? 'none' : `1px solid ${theme.border}`,
+              cursor: current === totalHoles - 1 ? 'default' : 'pointer',
+              color: current < totalHoles - 1 ? '#fff' : theme.textMuted,
+              fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
+              opacity: current === totalHoles - 1 ? 0.35 : 1,
+            }}
+          >
+            Next →
+          </button>
         </div>
 
-        {/* Mini scorecard */}
-        <div style={{ display: 'flex', gap: 5, overflowX: 'auto', paddingBottom: 2 }}>
+        {/* Mini scorecard + totals */}
+        <div style={{ display: 'flex', gap: 5, overflowX: 'auto' }}>
+          {/* Running totals */}
+          <div style={{
+            minWidth: 48, flexShrink: 0, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            borderRight: `1px solid ${theme.border}`, paddingRight: 6, marginRight: 1,
+          }}>
+            <div style={{ fontSize: 9, color: theme.textMuted, textTransform: 'uppercase' }}>Tot</div>
+            <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 16, fontWeight: 700, color: theme.text }}>{totalScore}</div>
+            <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 13, fontWeight: 700, color: totalDiffColor }}>{totalDiffStr}</div>
+          </div>
+
           {scores.map((s, i) => {
             const d = s - tee.holes[i].par;
             const isActive = i === current;
@@ -284,7 +291,7 @@ export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, c
                 key={i}
                 onClick={() => setCurrent(i)}
                 style={{
-                  minWidth: 38, height: 46, borderRadius: 8, flexShrink: 0,
+                  minWidth: 36, height: 46, borderRadius: 7, flexShrink: 0,
                   background: isActive ? theme.primary : cellBg(d),
                   border: `1px solid ${isActive ? theme.primary : theme.border}`,
                   cursor: 'pointer',
@@ -306,92 +313,6 @@ export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, c
           })}
         </div>
       </div>
-    </div>
-  );
-}
-
-interface GpsStripProps {
-  gps: { lat: number; lng: number; accuracy: number } | null;
-  distToGreen: number | null;
-  distToTee: number | null;
-  hasOsmData: boolean;
-  waypointsLoading: boolean;
-  holeWp: HoleWaypoints | undefined;
-  theme: Theme;
-}
-
-function GpsStrip({ gps, distToGreen, distToTee, hasOsmData, waypointsLoading, holeWp, theme }: GpsStripProps) {
-  const dotColor = gps ? '#4A9B6F' : '#C9893A';
-
-  return (
-    <div style={{
-      background: theme.surface,
-      borderBottom: `1px solid ${theme.border}`,
-      padding: '8px 16px',
-      display: 'flex', alignItems: 'center', gap: 10,
-      flexShrink: 0, minHeight: 44,
-    }}>
-      {/* GPS status dot */}
-      <div style={{
-        width: 8, height: 8, borderRadius: '50%',
-        background: dotColor, flexShrink: 0,
-        boxShadow: gps ? `0 0 0 3px ${dotColor}30` : 'none',
-      }} />
-
-      {!gps && (
-        <span style={{ fontSize: 12, color: theme.textMuted }}>
-          Acquiring GPS…
-        </span>
-      )}
-
-      {gps && !hasOsmData && !waypointsLoading && (
-        <span style={{ fontSize: 12, color: theme.textMuted }}>
-          GPS active · No hole map data for this course
-        </span>
-      )}
-
-      {gps && waypointsLoading && (
-        <span style={{ fontSize: 12, color: theme.textMuted }}>
-          GPS active · Loading hole positions…
-        </span>
-      )}
-
-      {gps && hasOsmData && !holeWp && (
-        <span style={{ fontSize: 12, color: theme.textMuted }}>
-          GPS active · Hole {/* hole number shown in parent */} not mapped
-        </span>
-      )}
-
-      {gps && hasOsmData && holeWp && (
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flex: 1 }}>
-          {distToGreen !== null && (
-            <DistBadge label="to Green" yards={distToGreen} theme={theme} />
-          )}
-          {distToTee !== null && (
-            <DistBadge label="to Tee" yards={distToTee} theme={theme} secondary />
-          )}
-          <span style={{ marginLeft: 'auto', fontSize: 10, color: theme.textMuted }}>
-            ±{Math.round(gps.accuracy)}m
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DistBadge({ label, yards, theme, secondary }: { label: string; yards: number; theme: Theme; secondary?: boolean }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-      <span style={{ fontSize: 9, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-        {label}
-      </span>
-      <span style={{
-        fontFamily: 'Playfair Display, serif',
-        fontSize: 22, fontWeight: 700, lineHeight: 1,
-        color: secondary ? theme.textSub : theme.primary,
-      }}>
-        {yards.toLocaleString()}<span style={{ fontSize: 11, fontFamily: 'DM Sans, sans-serif', marginLeft: 2 }}>yds</span>
-      </span>
     </div>
   );
 }
