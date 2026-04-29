@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { TeeData, CheckIn } from '../types';
 import type { Theme } from '../contexts/ThemeContext';
+import { useGpsPosition } from '../hooks/useGpsPosition';
+import { fetchGolfHoleWaypoints, haversineYards } from '../services/overpass';
+import type { HoleWaypoints } from '../services/overpass';
 
 interface Props {
   courseId: string;
   courseName: string;
   courseCity: string;
   courseSt: string;
+  courseLat: number;
+  courseLng: number;
   tee: TeeData;
   date: string;
   userId: string;
@@ -30,9 +35,21 @@ function cellBg(diff: number) {
   return 'rgba(192,57,43,0.25)';
 }
 
-export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, tee, date, userId, theme, onClose }: Props) {
+export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, courseLat, courseLng, tee, date, userId, theme, onClose }: Props) {
   const [current, setCurrent] = useState(0);
   const [scores, setScores] = useState<number[]>(tee.holes.map(h => h.par));
+  const [waypoints, setWaypoints] = useState<HoleWaypoints[]>([]);
+  const [waypointsLoading, setWaypointsLoading] = useState(true);
+
+  const { position: gps } = useGpsPosition();
+
+  useEffect(() => {
+    setWaypointsLoading(true);
+    fetchGolfHoleWaypoints(courseLat, courseLng)
+      .then(setWaypoints)
+      .catch(() => setWaypoints([]))
+      .finally(() => setWaypointsLoading(false));
+  }, [courseLat, courseLng]);
 
   const totalHoles = tee.holes.length;
   const hole = tee.holes[current];
@@ -42,6 +59,16 @@ export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, t
 
   const totalScore = scores.reduce((a, b) => a + b, 0);
   const totalDiff  = totalScore - tee.par_total;
+
+  const holeWp = waypoints.find(w => w.holeNumber === current + 1);
+  const distToGreen = gps && holeWp?.green
+    ? haversineYards(gps.lat, gps.lng, holeWp.green.lat, holeWp.green.lng)
+    : null;
+  const distToTee = gps && holeWp?.tee
+    ? haversineYards(gps.lat, gps.lng, holeWp.tee.lat, holeWp.tee.lng)
+    : null;
+
+  const hasOsmData = !waypointsLoading && waypoints.length > 0;
 
   function adjust(delta: number) {
     setScores(prev => {
@@ -113,6 +140,17 @@ export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, t
           Save
         </button>
       </div>
+
+      {/* GPS distance strip */}
+      <GpsStrip
+        gps={gps}
+        distToGreen={distToGreen}
+        distToTee={distToTee}
+        hasOsmData={hasOsmData}
+        waypointsLoading={waypointsLoading}
+        holeWp={holeWp}
+        theme={theme}
+      />
 
       {/* Hole display */}
       <div style={{
@@ -268,6 +306,92 @@ export function ActiveRoundPanel({ courseId, courseName, courseCity, courseSt, t
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+interface GpsStripProps {
+  gps: { lat: number; lng: number; accuracy: number } | null;
+  distToGreen: number | null;
+  distToTee: number | null;
+  hasOsmData: boolean;
+  waypointsLoading: boolean;
+  holeWp: HoleWaypoints | undefined;
+  theme: Theme;
+}
+
+function GpsStrip({ gps, distToGreen, distToTee, hasOsmData, waypointsLoading, holeWp, theme }: GpsStripProps) {
+  const dotColor = gps ? '#4A9B6F' : '#C9893A';
+
+  return (
+    <div style={{
+      background: theme.surface,
+      borderBottom: `1px solid ${theme.border}`,
+      padding: '8px 16px',
+      display: 'flex', alignItems: 'center', gap: 10,
+      flexShrink: 0, minHeight: 44,
+    }}>
+      {/* GPS status dot */}
+      <div style={{
+        width: 8, height: 8, borderRadius: '50%',
+        background: dotColor, flexShrink: 0,
+        boxShadow: gps ? `0 0 0 3px ${dotColor}30` : 'none',
+      }} />
+
+      {!gps && (
+        <span style={{ fontSize: 12, color: theme.textMuted }}>
+          Acquiring GPS…
+        </span>
+      )}
+
+      {gps && !hasOsmData && !waypointsLoading && (
+        <span style={{ fontSize: 12, color: theme.textMuted }}>
+          GPS active · No hole map data for this course
+        </span>
+      )}
+
+      {gps && waypointsLoading && (
+        <span style={{ fontSize: 12, color: theme.textMuted }}>
+          GPS active · Loading hole positions…
+        </span>
+      )}
+
+      {gps && hasOsmData && !holeWp && (
+        <span style={{ fontSize: 12, color: theme.textMuted }}>
+          GPS active · Hole {/* hole number shown in parent */} not mapped
+        </span>
+      )}
+
+      {gps && hasOsmData && holeWp && (
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flex: 1 }}>
+          {distToGreen !== null && (
+            <DistBadge label="to Green" yards={distToGreen} theme={theme} />
+          )}
+          {distToTee !== null && (
+            <DistBadge label="to Tee" yards={distToTee} theme={theme} secondary />
+          )}
+          <span style={{ marginLeft: 'auto', fontSize: 10, color: theme.textMuted }}>
+            ±{Math.round(gps.accuracy)}m
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DistBadge({ label, yards, theme, secondary }: { label: string; yards: number; theme: Theme; secondary?: boolean }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+      <span style={{ fontSize: 9, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+        {label}
+      </span>
+      <span style={{
+        fontFamily: 'Playfair Display, serif',
+        fontSize: 22, fontWeight: 700, lineHeight: 1,
+        color: secondary ? theme.textSub : theme.primary,
+      }}>
+        {yards.toLocaleString()}<span style={{ fontSize: 11, fontFamily: 'DM Sans, sans-serif', marginLeft: 2 }}>yds</span>
+      </span>
     </div>
   );
 }

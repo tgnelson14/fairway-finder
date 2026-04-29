@@ -681,6 +681,8 @@ export function CourseDetail({ courseId, course, onClose, isFavorite, onToggleFa
           courseName={course.n}
           courseCity={course.city}
           courseSt={course.st}
+          courseLat={course.lat}
+          courseLng={course.lng}
           tee={activeTee}
           date={roundDate}
           userId={user.id}
