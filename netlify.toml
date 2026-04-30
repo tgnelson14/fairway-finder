@@ -3,8 +3,14 @@
   publish = "dist"
   functions = "netlify/functions"
 
-[build.environment]
-  GOLF_API_KEY = "T7OCNDJDDLYQKS2SIHJ32YAL5I"
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(self), camera=(), microphone=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.arcgisonline.com https://*.mapbox.com https://*.basemaps.cartocdn.com https://*.openstreetmap.org https://server.arcgisonline.com; connect-src 'self' https://api.golfcourseapi.com https://api.opengolfapi.org https://api.open-meteo.com https://nominatim.openstreetmap.org https://overpass-api.de https://api.mapbox.com https://events.mapbox.com; worker-src blob:;"
 
 [[redirects]]
   from = "/*"
